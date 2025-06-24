@@ -113,15 +113,13 @@ void  FitMe(){
 char FilenameRoot[400];
 //The filename is hard coded here. I'll fix that later.
 //sprintf(FilenameRoot,"/data1/nextcloud/cra_data/data/2024/reconstructed/pre-launch/bfsw241210_tof241201_sd241210/runs/gse5/91229125/ethernet241213_*.root"); //UHCRA Run
-//sprintf(FilenameRoot,"/data1/nextcloud/cra_data/nobackup/MC/v2.1.2/full/mu-/*.root"); //New UHCRA simulated
-//sprintf(FilenameRoot,"/data1/nextcloud/cra_data/nobackup/MC/v2.1.0/full/mu-/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //UHCRA simulated
+//sprintf(FilenameRoot,"/data1/nextcloud/cra_data/nobackup/MC/v2.1.2/full/mu-/*.root"); //212 New UHCRA simulated
+//sprintf(FilenameRoot,"/data1/nextcloud/cra_data/nobackup/MC/v2.1.0/full/mu-/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //210 UHCRA simulated
 
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/mvtest/ethernet241213_145*.root"); //Personal Computer
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/ethernet241213_1451_rec.root"); //Personal Computer
-//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //Old simu data on my computer!
-sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //New sim personal computer
-//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/mu-_gaps_triggerlevel1_FTFP_BERT_1744342800_rec.root"); //New sim personal computer
-
+sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //Old simu data on my computer!
+//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //New sim personal computer
 
 int MainLoopScaleFactor = 1; //Set this number to scale the step size. Larger means runs faster and fewer events
 double TrackerCut = 0.3; //Threshold for an energy deposition to be considered a hit
@@ -155,9 +153,6 @@ for(int r = 0; r < nrows; r++){rw[r] = r;}
 for(int k = 0; k < nmods; k++){md[k] = k;}
 for(int s = 0; s < nstrips; s++){strps[s] = s;}
 
-
-//mpv for storing the mpvs from the Landau fits
-double mpv[nrows*nstrips][nlayers*nmods];
 
 //Need a histogram and fitting function for every strip
 TH1F * h[nlayers][nrows][nmods][nstrips];
@@ -227,7 +222,7 @@ for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor){
                                 if(volspec(VolumeId,0,3) == 111) {CBEbotflag = 1;}// cout << "CBE bot hit!" << endl;
                         }
 
-			if(Umbflag && CBEtopflag && CBEbotflag && (pt->GetChi2()/pt->GetNdof()) < 3.2 ){
+			if(Umbflag && CBEtopflag /*&& CBEbotflag*/ && (pt->GetChi2()/pt->GetNdof()) < 3.2 ){
 				//cout << "Event number " << i << " passes the cuts!" << endl;
 				for(uint isig=0; isig<Event->GetTrack(0)->GetEnergyDeposition().size(); isig++){
 					unsigned int VolumeId  = Event->GetTrack(0)->GetVolumeId(isig);		
@@ -245,7 +240,8 @@ for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor){
 
 						//cout << "Edep * Cos(theta) " << Event->GetTrack(0)->GetEnergyDeposition(isig)*fabs(Event->GetPrimaryMomentumDirection().CosTheta() << endl;
 						h[layer][row][mod][strip]->Fill(  (Event->GetTrack(0)->GetEnergyDeposition(isig)*fabs(Event->GetPrimaryMomentumDirection().CosTheta()))   );
-						hnentries->Fill(row*32+strip,layer*6+mod);	
+						hnentries->Fill(row*32+strip,layer*6+mod);
+
 					} //Closed bracket for Tracker volume and tracker cutoff
 
 				} //Closed bracket for iteration over event with TOF cuts
@@ -295,8 +291,10 @@ for(int l = 0; l<nlayers;l++){
                                         gStyle->SetOptFit();
                                         h[l][r][k][s]->Draw();
 
-					mpv[r*32+s][l*6+k] = g1[l][r][k][s]->GetParameter(1); //Save the calculated MPV, it will be used for the histogram
+					hcol21->Fill(r*32 + s,l*6 + k,g1[l][r][k][s]->GetParameter(1));
+					//mpv[r*32+s][l*6+k] = g1[l][r][k][s]->GetParameter(1); //Save the calculated MPV, it will be used for the histogram
                                 	myfile << (TString::Format(    "%i \t %i \t %i \t %i \t %f \t %f \t %i \n",l,r,k,s,g1[l][r][k][s]->GetParameter(1),g1[l][r][k][s]->GetParameter(2), static_cast<int>(h[l][r][k][s]->GetEntries())   ));
+				
 				}
 	
                                 string title = "FullEdepl" + to_string(lyr[l]) + "r" + to_string(rw[r]) + "m" + to_string(md[k]) + "d" + to_string(dt[j]);
@@ -312,15 +310,6 @@ for(int l = 0; l<nlayers;l++){
 }
 
 myfile.close();
-
-for(int k = 0; k < nlayers*nmods ; k++){
-        for(int j = 0; j < nrows*nstrips;j++ ){
-               if(mpv[j][k] > 0.1){
-                        hcol21->Fill(j,k,mpv[j][k]);
-                }
-        }
-}
-
 
 TCanvas * c1 = new TCanvas("c1", "c1", 200, 10, 900, 900);
 c1->SetLeftMargin(0.1);
