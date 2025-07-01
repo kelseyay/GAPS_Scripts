@@ -118,8 +118,8 @@ char FilenameRoot[400];
 
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/mvtest/ethernet241213_145*.root"); //Personal Computer
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/ethernet241213_1451_rec.root"); //Personal Computer
-sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //Old simu data on my computer!
-//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //New sim personal computer
+//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //Old simu data on my computer!
+sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //New sim personal computer
 
 int MainLoopScaleFactor = 1; //Set this number to scale the step size. Larger means runs faster and fewer events
 double TrackerCut = 0.3; //Threshold for an energy deposition to be considered a hit
@@ -134,7 +134,9 @@ double fithigh = 3.5;
 const Int_t NBins = 50;
 double betacut = 0.8; //Currently we're only doing a beta > 0 cutoff for real data. Beta > 0.8 recommended for sim
 
-
+//Full tracker histogram range
+double mpvmin = 0.66;
+double mpvmax = 0.75;
 
 //Number of layers and strips
 const int nstrips = 32;
@@ -150,7 +152,7 @@ int strps[nstrips];
 
 for(int l = 0; l < nlayers; l++){lyr[l] = l;}
 for(int r = 0; r < nrows; r++){rw[r] = r;}
-for(int k = 0; k < nmods; k++){md[k] = k;}
+for(int m = 0; m < nmods; m++){md[m] = m;}
 for(int s = 0; s < nstrips; s++){strps[s] = s;}
 
 
@@ -163,10 +165,10 @@ auto hnentries = new TH2F("hnentries","Full Tracker Strip-Level NHits",nrows*nst
 
 for(int l = 0;l<nlayers;l++){
         for(int r = 0;r<nrows;r++){
-                for(int k = 0; k < nmods; k++){
+                for(int m = 0; m < nmods; m++){
                         for(int s = 0; s < nstrips; s++){
-                                h[l][r][k][s] = new TH1F (TString::Format("h0_l%ir%im%is%i",l,r,k,s), ("Edep l" + to_string(lyr[l]) + "r" + to_string(rw[r]) + "m" + to_string(md[k]) + "s" + to_string(strps[s])).c_str(), NBins, xlow,xhigh);
-                                g1[l][r][k][s] = new TF1("g1", "landau", fitlow, fithigh);
+                                h[l][r][m][s] = new TH1F (TString::Format("h0_l%ir%im%is%i",l,r,m,s), ("Edep l" + to_string(lyr[l]) + "r" + to_string(rw[r]) + "m" + to_string(md[m]) + "s" + to_string(strps[s])).c_str(), NBins, xlow,xhigh);
+                                g1[l][r][m][s] = new TF1("g1", "landau", fitlow, fithigh);
                         }
                 }
         }
@@ -194,6 +196,8 @@ map<int, unsigned int> TofIndexVolumeIdMap;
 
 //How many entries:
 cout << "Total Number of events / Mainscale Factor = " << TreeRec->GetEntries()/MainLoopScaleFactor << endl;
+cout << "Beta cut " << betacut << endl;
+cout << "MPV range on 2D Full Tracker will be " << mpvmin << " - " << mpvmax << endl; 
 
 //Using i to loop over every event in the tree
 for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor){
@@ -266,7 +270,7 @@ myfile.open("EdepList.txt",std::ios::app);
 
 for(int l = 0; l<nlayers;l++){
         for(int r = 0; r<nrows;r++){
-                for(int k = 0; k < nmods; k++){
+                for(int m = 0; m < nmods; m++){
                         for(int j = 0; j < ceil(nstrips/8); j++){
                                 cout << "j is " << j << endl;
                                 TCanvas * EdepCompare = new TCanvas("EdepCompare", "EdepCompare", 200, 10, 1800, 900);
@@ -279,25 +283,25 @@ for(int l = 0; l<nlayers;l++){
                                 EdepCompare->Divide(4,2);
 
                                 for(int s = 0 + 8*j; s < 8 + 8*j;s++){
-                                        h[l][r][k][s]->SetLineColor(1);
-                                        h[l][r][k][s]->GetXaxis()->SetTitle("Energy Deposition of Hit * Cos(#theta) (MeV)");
-                                        h[l][r][k][s]->GetYaxis()->SetTitle("Number of Events");
+                                        h[l][r][m][s]->SetLineColor(1);
+                                        h[l][r][m][s]->GetXaxis()->SetTitle("Energy Deposition of Hit * Cos(#theta) (MeV)");
+                                        h[l][r][m][s]->GetYaxis()->SetTitle("Number of Events");
                                         EdepCompare->cd((s % 8)+1);
-                                        h[l][r][k][s]->Fit(g1[l][r][k][s],"R");
+                                        h[l][r][m][s]->Fit(g1[l][r][m][s],"R");
                                         gPad->SetGridx(1);
                                         gPad->SetGridy(1);
                                         gPad->SetLogy(1);
                                         gStyle->SetTitleW(0.9);
                                         gStyle->SetOptFit();
-                                        h[l][r][k][s]->Draw();
+                                        h[l][r][m][s]->Draw();
 
-					hcol21->Fill(r*32 + s,l*6 + k,g1[l][r][k][s]->GetParameter(1));
+					hcol21->Fill(r*32 + s,l*6 + m,g1[l][r][m][s]->GetParameter(1));
 					//mpv[r*32+s][l*6+k] = g1[l][r][k][s]->GetParameter(1); //Save the calculated MPV, it will be used for the histogram
-                                	myfile << (TString::Format(    "%i \t %i \t %i \t %i \t %f \t %f \t %i \n",l,r,k,s,g1[l][r][k][s]->GetParameter(1),g1[l][r][k][s]->GetParameter(2), static_cast<int>(h[l][r][k][s]->GetEntries())   ));
+                                	myfile << (TString::Format(    "%i \t %i \t %i \t %i \t %f \t %f \t %i \n",l,r,m,s,g1[l][r][m][s]->GetParameter(1),g1[l][r][m][s]->GetParameter(2), static_cast<int>(h[l][r][m][s]->GetEntries())   ));
 				
 				}
 	
-                                string title = "FullEdepl" + to_string(lyr[l]) + "r" + to_string(rw[r]) + "m" + to_string(md[k]) + "d" + to_string(dt[j]);
+                                string title = "FullEdepl" + to_string(lyr[l]) + "r" + to_string(rw[r]) + "m" + to_string(md[m]) + "d" + to_string(dt[j]);
                                 char name[400];
                                 sprintf(name, "%s.root",title.c_str());
                                 EdepCompare->SaveAs(name);
@@ -319,10 +323,13 @@ c1->SetBottomMargin(0.1);
 hcol21->SetBit(TH1::kNoStats);
 hcol21->GetXaxis()->SetTitle("row(0-6)*32 + det(0-3)*8 + strp (0-7)");
 hcol21->GetYaxis()->SetTitle("layer(0-7)*6 + mod(0-6)");
-hcol21->GetZaxis()->SetTitle("Energy Deposition MPV * Cos(theta) (MeV)");
+hcol21->GetZaxis()->SetTitle("Energy Deposition MPV * Cos(#theta) (MeV)");
 hcol21->Draw("COLZ");
-hcol21->SetMaximum(0.8);
-hcol21->SetMinimum(0.6);
+hcol21->SetMaximum(mpvmax);
+hcol21->SetMinimum(mpvmin);
+
+hcol21->SaveAs("hcol21.root");
+hcol21->SaveAs("hcol21");
 
 string title = "HistFullTrackerMPV";
 char histname[400];
@@ -343,12 +350,14 @@ hnentries->GetYaxis()->SetTitle("layer(0-7)*6 + mod(0-6)");
 hnentries->GetZaxis()->SetTitle("Number of Hits");
 hnentries->Draw("COLZ");
 
+hnentries->SaveAs("hnentries.root");
+hnentries->SaveAs("hnentries");
+
 title = "HistFullTrackerNEntries";
 sprintf(histname, "%s.root",title.c_str());
 c2->SaveAs(histname);
 sprintf(histname, "%s.png",title.c_str());
 c2->SaveAs(histname);
-
 
 //--------------------------------------
 
