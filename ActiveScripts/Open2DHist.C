@@ -52,11 +52,20 @@ using namespace std;
 
 void  HistOpen(){
 
-//Just need one histogram and one fit for one strip
+//I really need to change this to taking user input, just see DQO
 
-//Number of layers and strips
-double mpvmin = 0.65;
-double mpvmax = 0.8;
+string Filepath = "/home/kelsey/GitScripts/ActiveScripts/212RecoBetaCut0.8NoCBEbot3/";
+//string Filepath = "/home/kelsey/GitScripts/ActiveScripts/210RecoBetaCut0.8NoCBEbot/";
+//string Filepath = "/home/kelsey/simulations/uhcrapull/LRMSPlots/241312Beta0.2NoCBEbot/";
+//string Filepath = "/home/kelsey/simulations/uhcrapull/LRMSPlots/Pass4241312BetaCut0.2NoCBEbot/";
+char Filename[400];
+sprintf(Filename, "%s%s" ,Filepath.c_str(),"hcol21.root" );
+
+//const char Filename[nlen] = (Filepath + "hcol21.root").c_str();
+
+//Fit Range
+double mpvmin = 0.5;
+double mpvmax = 0.75;
 
 const int nstrips = 32;
 const int nmods = 6;
@@ -65,22 +74,25 @@ const int nlayers = 7;
 int dt[4] = {3,4,1,2};
 
 auto hcol21 = new TH2F("hcol21","MPV Full Tracker",nrows*nstrips,0,nrows*nstrips,nlayers*nmods,0,nlayers*nmods);
-TFile *f = TFile::Open("hcol21.root");
+TFile *f = TFile::Open(Filename);
 hcol21 = (TH2F*)f->Get("hcol21");
 
 TCanvas * c1 = new TCanvas("c1", "c1", 200, 10, 900, 900);
 c1->SetLeftMargin(0.1);
-c1->SetRightMargin(0.16);
+c1->SetRightMargin(0.15);
 c1->SetTopMargin(0.1);
 c1->SetBottomMargin(0.1);
-hcol21->SetBit(TH1::kNoStats);
+//hcol21->SetBit(TH1::kNoStats);
+hcol21->Draw("COLZ");
+hcol21->SetStats(false);
+hcol21->GetZaxis()->SetTitle("Energy Deposition MPV * Cos(#theta) (MeV)");
 hcol21->GetXaxis()->SetTitle("row(0-6)*32 + det(0-3)*8 + strp (0-7)");
 hcol21->GetYaxis()->SetTitle("layer(0-7)*6 + mod(0-6)");
-hcol21->GetZaxis()->SetTitle("Energy Deposition MPV * Cos(#theta) (MeV)");
-hcol21->Draw("COLZ");
 hcol21->SetMaximum(mpvmax);
 hcol21->SetMinimum(mpvmin);
 
-c1->SaveAs("OpenHistMPV.png");
+char Savename[400];
+sprintf(Savename, "%s%s" ,Filepath.c_str(),"OpenHistMPV.png" );
+c1->SaveAs(Savename);
 
 }
