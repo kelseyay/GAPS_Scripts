@@ -54,7 +54,10 @@ void  HistOpen(){
 
 //I really need to change this to taking user input, just see DQO
 
-string Filepath = "/home/kelsey/GitScripts/ActiveScripts/212RecoBetaCut0.8NoCBEbot3/";
+string Filepath = "/home/kelsey/simulations/uhcrapull/LRMSPlots/NewFit241312BetaCut0.2/";
+//string Filepath = "~/simulations/uhcrapull/LRMSPlots/NewFitPass4241312BetaCut0.2NoCBEbot/";
+//string Filepath = "/home/kelsey/GitScripts/ActiveScripts/EdepTest/";
+//string Filepath = "/home/kelsey/GitScripts/ActiveScripts/212RecoBetaCut0.8NoCBEbot3/";
 //string Filepath = "/home/kelsey/GitScripts/ActiveScripts/210RecoBetaCut0.8NoCBEbot/";
 //string Filepath = "/home/kelsey/simulations/uhcrapull/LRMSPlots/241312Beta0.2NoCBEbot/";
 //string Filepath = "/home/kelsey/simulations/uhcrapull/LRMSPlots/Pass4241312BetaCut0.2NoCBEbot/";
