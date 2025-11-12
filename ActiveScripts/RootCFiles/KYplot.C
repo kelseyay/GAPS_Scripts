@@ -7,6 +7,8 @@
     const int nstrips = 32;
     const int ncn = 2;
 
+    int zhistmax = 50;
+
     const int npulse = 100; //Hypothetically pulsing 100 channels!
 
     // Threshold parameters (fully consistent with original code)
@@ -14,7 +16,7 @@
     //const float mthresh = 15; //MIP Threshold?
 
     // Create histogram (same definition as original code)
-    TH2D *hdiff = new TH2D("hdiff", "Pedestal Comparison after Pulse Correction",
+    TH2D *hdiff = new TH2D("hdiff", "Score from Threshold Recovery",
                            ncn*nrows, 0, ncn*nrows,
                            nlayers*nmods, 0, nlayers*nmods);
 
@@ -29,7 +31,7 @@
                            nlayers*nmods, 0, nlayers*nmods);
 
     // Create histogram for sigma before correction
-    TH2D *hsig_after = new TH2D("hsig_after", "Sigma Map Pre-Correction",
+    TH2D *hsig_after = new TH2D("hsig_after", "Sigma Map Post-Correction",
                            nrows*nstrips, 0, nrows*nstrips,
                            nlayers*nmods, 0, nlayers*nmods);
 
@@ -38,7 +40,7 @@
     double after_data[7][6][6][32] = {0};
     int pulsed_ch[7][6][6][ncn] = {0};
     double mag_improv[7][6][6][ncn] = {0};
-    double score_improv[7][6][6][ncn] = {0};
+    int score_improv[7][6][6][ncn] = {0};
 
     // Read pre-correction data (corresponding to hsig_nocorr)
     std::cout << "Reading output/ped_before_CMN_removal.txt..." << std::endl;
@@ -153,8 +155,11 @@
 
     std::ofstream myfile;
     myfile.open("output/FullInfo.txt");
-    myfile << "X-ray Threshold = " << xthresh << endl;
+    myfile << "User Set Threshold = " << xthresh << endl;
     myfile << "Layer\tRow\tMod\tStrip\tPre-CMN\tPost-CMN" << endl;
+
+    const int xmax = nstrips/ncn;
+    int xtally[xmax] = {0};
 
     for (int l = 0; l < nlayers; l++) {
         for (int r = 0; r < nrows; r++) {
@@ -173,9 +178,10 @@
                     hmag->Fill(x_bin + 0.5, y_bin + 0.5, sum_sigma);  // +0.5 to fill bin center
                     mag_improv[l][r][m][n] = sum_sigma;
                     score_improv[l][r][m][n] = xscore;
-
+                    xtally[xscore]++;
+                    //cout << "X-score " << xscore << " tally = " << xtally[xscore] << endl;
                     myfile << "Pulsed channel = " << pulsed_ch[l][r][m][n] << endl;
-                    myfile << "X-ray score = " << xscore << endl;
+                    myfile << "Score = " << xscore << endl;
                     myfile << "Total sigma improvement of ncn " << n << " = " <<  sum_sigma << endl << endl;
                 }
 
@@ -187,13 +193,59 @@
 
     //Ranked pulse channel
     //Iterate over the ncn's. Use score and magnitude to determine which channels to pulse.
-    //Start by just making sure you can organize by score and
+    //Start by just making sure you can organize by score and magnitude
+    //cout << "Max score is " << xmax << endl;
+
     std::ofstream rankfile;
     rankfile.open("output/RankedChannels.txt");
-    rankfile << "X-ray Threshold = " << xthresh << endl;
-    rankfile << "Layer\tRow\tMod\tStrip\tX-score\tMag Improv" << endl;
+    rankfile << "User Set Threshold = " << xthresh << endl;
+    rankfile << "Layer\tRow\tMod\tStrip\tScore\tMag Improv" << endl;
+
+    //Organizing the output by magnitude will be messy for me. I need some help, but a list or vector might be appropriate
+    for(int x = 0; x < xmax; x++) {
+
+        std::vector<double> mag_comp = {0}; //Vector for comparing the magnitude of improvement within one score
+        std::vector<string> text = {""};
+
+        for (int l = 0; l < nlayers; l++) {
+            for (int r = 0; r < nrows; r++) {
+                for (int m = 0; m < nmods; m++) { //Going over all modules
+                    for(int n = 0; n < ncn; n++) {
+
+                        if(score_improv[l][r][m][n] == xmax - x){
+
+                        int tkr = 0; //For each strip with the same xscore, track where it should go.
+                        string words = "";
+
+                        for(double val : mag_comp){ //Iterate through the mag vector, starts with no elements.
+                            //cout << "val test " << val << endl;
+                            if(mag_improv[l][r][m][n] < val) tkr++;
+                        }
+
+                        auto itloc = mag_comp.begin() + tkr;
+                        auto itloc_txt = text.begin() + tkr;
+                        mag_comp.insert(itloc,mag_improv[l][r][m][n]);
+                        words = TString::Format("%d\t%d\t%d\t%d\t%d\t%f\n",l,r,m,pulsed_ch[l][r][m][n],score_improv[l][r][m][n], mag_improv[l][r][m][n]);
+                        text.insert(itloc_txt, words);
 
 
+                            //At each score we will compare the magnitude of improvement.
+                        }
+
+
+                    }
+                }
+            }
+        }
+
+
+        //IT WORKED
+        for(string val : text){ //Iterate through the mag vector, starts with no elements.
+            rankfile << val;
+        //    cout << "val test " << val << endl;
+        }
+
+    }
 
     rankfile.close();
 
@@ -273,7 +325,7 @@
     hsig_before->GetZaxis()->SetTitle("Sigma");
     hsig_before->GetZaxis()->SetTitleOffset(1.8);
     hsig_before->SetMinimum(0);
-    hsig_before->SetMaximum(100);
+    hsig_before->SetMaximum(zhistmax);
 
     gStyle->SetPalette();  // kRainBow palette
 
@@ -303,7 +355,7 @@
     hsig_after->GetZaxis()->SetTitle("Sigma");
     hsig_after->GetZaxis()->SetTitleOffset(1.8);
     hsig_after->SetMinimum(0);
-    hsig_after->SetMaximum(100);
+    hsig_after->SetMaximum(zhistmax);
 
     // Set colors (same as original code)
     //gStyle->SetPalette(55);  // kRainBow palette
