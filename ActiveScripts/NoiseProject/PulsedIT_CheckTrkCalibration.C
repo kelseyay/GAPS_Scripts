@@ -257,7 +257,7 @@ TTree* ExtractRow(TString flist, int ll, int rr, std::string file , TString ddir
   return tree;
 };
 /////////////////////////////////////
-void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, Long64_t evidmax, TString ddir,TString suffix){
+void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, Long64_t evidmax, TString ddir,TString suffix, std::string maskfile){
 
 
   bool subcn = cnmod>0;
@@ -275,6 +275,10 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
   //----------------------------------------- raw event
   Crane::Calibration::CRawTrk *rawtrk = new Crane::Calibration::CRawTrk();
   craw->SetBranchAddress("Trk", &rawtrk);
+  //----------------------------------------- Prepare mask file
+  CCalib *data_calib = NULL;
+  data_calib = new  Crane::Calibration::CCalib();
+  data_calib->GetTrkCalib().SetMasks(maskfile);
 
   //-----------------------------------------
   // define histograms
@@ -360,23 +364,42 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
   }
 
   TH1F* hsall0[NLAYERS][NROWS][NMODULES]; /// all, before cn correction
+  TH1F* hsall_noMIPbline[NLAYERS][NROWS][NMODULES]; /// all, before cn correction
   TH1F* hsped[NLAYERS][NROWS][NMODULES]; ///used for ped evaluation
   TH1F* hsmip[NLAYERS][NROWS][NMODULES]; ///excluded from ped evaluation
+  TH1F* hspulse_cuts[NLAYERS][NROWS][NMODULES];
+  TH1F* hspulse_nocuts[NLAYERS][NROWS][NMODULES];
   for(int il=0; il<NLAYERS; il++){
     for(int ir=0; ir<NROWS; ir++){
       for(int im=0; im<NMODULES; im++){
-        hsall0[il][ir][im] =  new TH1F(Form("hsall0_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,1000);
-        hsped[il][ir][im] =  new TH1F(Form("hsped_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,1000);
-        hsmip[il][ir][im] =  new TH1F(Form("hsmip_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,1000);
+        hsall0[il][ir][im] =  new TH1F(Form("hsall0_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,200);
+        hsall_noMIPbline[il][ir][im] =  new TH1F(Form("hsall0_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,200);
+        hsped[il][ir][im] =  new TH1F(Form("hsped_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,200);
+        hsmip[il][ir][im] =  new TH1F(Form("hsmip_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,200);
+        hspulse_cuts[il][ir][im] =  new TH1F(Form("hspulse_cuts_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,200);
+        hspulse_nocuts[il][ir][im] =  new TH1F(Form("hspulse_nocuts_%i%i%i",il,ir,im),Form("Module %i%i%i",il,ir,im),600,-200,200);
       }
     }
   }
+
+  //2D histogram for the correlation between cn (baseline) and Xi - gi*B
+  auto bsline_v_XigiB = new TH2F("bsline_v_XigiB","Comparison Baseline v Xi-gi*B",200,-150,150,200,-120,120);
+  //auto hbetacomp = new TH2F("hbetacomp","Beta Generated vs Beta Reconstructed",50,eventbetacut,1,50,0,1.6);
+
+  // -----------------------------------------------------
+  // define vectors for pulsed channel storing
+
+  int pulsed_ch[NLAYERS][NROWS][NMODULES][NCN];
+  fill_n( &pulsed_ch[0][0][0][0],NLAYERS*NROWS*NMODULES*NCN,-1);
 
   // -----------------------------------------------------
   // define vectors for pedestal evaluation
   //
   double  adc[NLAYERS][NROWS][NMODULES][NCHANNELS];
   fill_n( &adc[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
+  double  adc_pulsed[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  fill_n( &adc_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
 
   double  sum[NLAYERS][NROWS][NMODULES][NCHANNELS];
   double sum2[NLAYERS][NROWS][NMODULES][NCHANNELS];
@@ -385,10 +408,35 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
   fill_n(&sum2[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
   fill_n(   &n[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
 
+  //For KY iteration loop!
+  double  sum_pulsed[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  double sum2_pulsed[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  int       n_pulsed[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  fill_n( &sum_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+  fill_n(&sum2_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+  fill_n(   &n_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
+  double  sum_nocor[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  double sum2_nocor[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  int       n_nocor[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  fill_n( &sum_nocor[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+  fill_n(&sum2_nocor[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+  fill_n(   &n_nocor[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
   double  ped[NLAYERS][NROWS][NMODULES][NCHANNELS];
   double  sig[NLAYERS][NROWS][NMODULES][NCHANNELS];
   fill_n( &ped[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
   fill_n( &sig[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
+  double  ped_pulsed[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  double  sig_pulsed[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  fill_n( &ped_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+  fill_n( &sig_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
+  double  ped_nocor[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  double  sig_nocor[NLAYERS][NROWS][NMODULES][NCHANNELS];
+  fill_n( &ped_nocor[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+  fill_n( &sig_nocor[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
 
   bool disconnected[NLAYERS][NROWS][NMODULES][NCHANNELS];
   fill_n( &disconnected[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
@@ -604,7 +652,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
   int niter_cn = 3;//subtract common noise starting from this iteration
   int ncnmin = 4;//minimum number of channels good to evaluate baseline
 
-  for (uint it=1 ; it<=niter; it++){ // iterate
+  for (uint it=1 ; it<=niter; it++){ // iterate //I'm gonna do some investigative stuff at this point
 
     bool DOCNEVAL = subcn&(it>=niter_cn);
 
@@ -745,7 +793,16 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 	if(
 	   !disconnected[layer][row][module][channel] &&
 	   true){
-	  cncn = cn[layer][row][module][cnindex]*gain[layer][row][module][channel]  ;
+	//if(it==niter)cout << endl << "About to calculate cncn, cn[1][1][1][1] * gain[1][1][1][1] = " << cn[1][1][1][1] << "*" << gain[1][1][1][1] << endl; //
+	//Once gain is calculated, this is in fact, okay.
+	//if(it==niter+1)cout << "Pre X' pulsed ch check, pulsed_ch[1][1][4][0] = " << pulsed_ch[1][1][4][0] << endl;
+	    //This did, in fact, work!
+		//Actually can just calculate sigma in the X' iteration.
+	//About to calculate cncn, cn[1][1][1][1] * gain[1][1][1][1] = -0.992103*0.195364
+	//About to calculate cncn, cn[1][1][1][1] * gain[1][1][1][1] = 2.0079*0.195364
+	//Gain stays the same and is only calculated once, but cn calculated every event? Is that it? I think that makes sense actually lol.
+
+	  cncn = cn[layer][row][module][cnindex]*gain[layer][row][module][channel]  ; //Gain is calculated on lin 900-something?
 	}
 	///////////////////////////////////////////
 	adc[layer][row][module][channel] = val-cncn;
@@ -756,6 +813,9 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 	  if( module_ok[layer][row][module][half] ){
 
             hsped[layer][row][module]->Fill(adc[layer][row][module][channel]-ped[layer][row][module][channel]);
+            if(layer != 0 && !( ((adc[layer][row][module][channel]-ped[layer][row][module][channel]) > -20) && ((adc[layer][row][module][channel]-ped[layer][row][module][channel]) < 20) ) ) bsline_v_XigiB->Fill(adc[layer][row][module][channel]-ped[layer][row][module][channel] , cn[layer][row][module][cnindex] );
+            //cout << "hsped lrms " << layer << row << module << channel << " = " << adc[layer][row][module][channel]-ped[layer][row][module][channel] << endl;
+            //cout << "cn lrm(cnindex) " << layer << row << module << cnindex << " = " << cn[layer][row][module][cnindex] << endl;
 	    hsok[irank]->Fill(adc[layer][row][module][channel]-ped[layer][row][module][channel]);
 	    if(!hs[layer][row][module][channel]) hs[layer][row][module][channel] = new TH1F(Form("hs_%i_%i",100*layer+10*row+module,channel),"R-PED-B",100,-50,50);
 	    hs[layer][row][module][channel]->Fill(adc[layer][row][module][channel]-ped[layer][row][module][channel] );
@@ -798,7 +858,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 		for(int jc=0; jc<NCHANNELS;jc++){
 		  cov[il][ir][im][ic][jc] += adc[il][ir][im][ic]*adc[il][ir][im][jc];//
 		}
-		sum[il][ir][im][ic]+=adc[il][ir][im][ic];
+		sum[il][ir][im][ic]+=adc[il][ir][im][ic]; //At this point, adc has been written over with -cncn if it's the last iteration.
 		sum2[il][ir][im][ic]+=adc[il][ir][im][ic]*adc[il][ir][im][ic];
 		n[il][ir][im][ic]++;
 
@@ -839,6 +899,8 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
     fill_n( &ped[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
     fill_n( &sig[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
     fill_n( &disconnected[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
+    cout << endl << "At this point sum[2][0][5][0] / n[2][0][5][0] = " << sum[2][0][5][0] << "/" << n[2][0][5][0] << endl;
 
     for(int il = 0 ; il<NLAYERS; il++){
       for(int ir = 0 ; ir<NROWS; ir++){
@@ -886,7 +948,12 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
     //---------------------------------------------------
     // Do things to be done aftefirst baseline evaluation
     //---------------------------------------------------
-    fill_n( &gain[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,1);
+
+    //Gain is already filled as 1 on line 400-something. Maybe this is causing issues.
+    //fill_n( &gain[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,1);
+    //KY - I commented this out and now the calculated gain[l][r][m][s] makes its way to the pulse channel calculation
+
+    cout << endl << "What is gain at this point? gain[1][1][1][1] = " << gain[1][1][1][1] << endl; //
     if(it == niter_cn && cnmod == 2){
       ////////////////////////////////////////////////////
       cout << endl << "OOOOOOO Evaluate GAIN ("<<it<<")";
@@ -922,13 +989,13 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
               if(disconnected[il][ir][im][ic])continue;
               double varbase = sigcn[il][ir][im][cnindex]*sigcn[il][ir][im][cnindex] - avsig2[cnindex];
               double G = 0; //Gain part right here!
-              double GG = 0; //Testing the Gigi Gain	
+              //double GG = 0; //Testing the Gigi Gain
 
 	      //Previous Elena method!
 	      //G = sig0[il][ir][im][ic]*sig0[il][ir][im][ic] - sig[il][ir][im][ic]*sig[il][ir][im][ic];
               //G /= (2 *  varbase);
               //G += 0.5;
-		
+
 	      G =  ((NCHANNELS/NCN) - 1)*sig0[il][ir][im][ic]*sig0[il][ir][im][ic] - (NCHANNELS/NCN)* sig[il][ir][im][ic]*sig[il][ir][im][ic];
 	      G /= (2 * (NCHANNELS/NCN) * varbase);
 	      G += 0.5;
@@ -937,6 +1004,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 	      //cout << "Gianluigi method GG: " << GG << endl << endl;
 
               gain[il][ir][im][ic] = G;
+              cout << "gain calculated " << gain[il][ir][im][ic] << endl;
               hgaindist->Fill(gain[il][ir][im][ic]);
               hgain->Fill(ir*NCHANNELS+ic,il*NMODULES+im,gain[il][ir][im][ic]);
               // cout << endl <<" var(x)   "<< sig0[il][ir][im][ic]*sig0[il][ir][im][ic];
@@ -953,7 +1021,6 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
       }
     }
 
-
     //---------------------------------------------
     // Do things to be done @ last iteration only
     //---------------------------------------------
@@ -963,6 +1030,8 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
       cout << endl << "OOOOOOO Evaluate covariance matrix ("<<it<<")";
       ////////////////////////////////////////////////////
 
+    cout << endl << "Was gain saved? gain[1][1][1][1] = " << gain[1][1][1][1] << endl; //
+    //At this point, gain = 1
 
       for(int il = 0 ; il<NLAYERS; il++){
         for(int ir = 0 ; ir<NROWS; ir++){
@@ -1016,14 +1085,21 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
                 for(int i=0; i<N; i++){
                   uint ic = ih*N+i;
                   if(disconnected[il][ir][im][ic])continue;
+                  if(!data_calib->GetTrkCalib().IsGood(il,ir,im,ic))continue;
+                  //if(data_calib->GetTrkCalib().IsGood(il,ir,im,ic)) cout << "Good channel: " << il << ir << im << ic << endl;
                   sigma_n[i] = sig[il][ir][im][ic];//intrinsic noise
                   cgain[i]   = gain[il][ir][im][ic];//gain
+                  //cout << "sigma / cgain is " << sig[il][ir][im][ic] << "/" << gain[il][ir][im][ic] << endl; //Why is gain = 1?? Fixed.
                   if( sigma_n[i]/cgain[i] < val_best ){
                     ic_min   = ic;
                     i_min    = i;
                     val_best = sigma_n[i]/cgain[i];
                     if( sigma_n[i]/cgain[i] < sigma_c ){
                       ic_best = ic;
+                      pulsed_ch[il][ir][im][ih] = ic;
+                      cout << "Best channel to pulse: " << il << ir << im << " ih: " << ih << " is " << ic_best << endl;
+                      //cout << "sigma / cgain is " << sig[il][ir][im][ic] << "/" << gain[il][ir][im][ic] << endl;
+                      //cout << "ih is " << ih << " and ch/NChannels/NCN is " << (int)floor(ic/(NCHANNELS/NCN)) << endl;
                       i_best  = i;
                     }
                   }
@@ -1034,6 +1110,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
                   if(ped[il][ir][im][ic]==0)continue;
                   if(sig[il][ir][im][ic]==0)continue;
                   if(disconnected[il][ir][im][ic])continue;
+                  if(!data_calib->GetTrkCalib().IsGood(il,ir,im,ic))continue;
                   hpulser->Fill(ir*NCHANNELS+ic,il*NMODULES+im);//1
                   if(ic_best<0)continue;
                   hpulser->Fill(ir*NCHANNELS+ic,il*NMODULES+im);//1+1
@@ -1057,6 +1134,13 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 
               }
 
+              //KY Checking the pulsed channel vector
+              for(int ih=0; ih<NCN; ih++){
+                  int ic = pulsed_ch[il][ir][im][ih];
+                  cout << "Best channel to pulse: " << il << ir << im << " ih: " << ih << " is " << pulsed_ch[il][ir][im][ih] << endl;
+                  cout << "sigma / cgain is " << sig[il][ir][im][ic] << "/" << gain[il][ir][im][ic] << " = " << sig[il][ir][im][ic]/gain[il][ir][im][ic] << endl;
+              }
+
             }//modules
           }//rows
         }//layers
@@ -1069,6 +1153,276 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 
   }//end iterations
 
+//KY extra iteration woooo!
+cout << endl << "Pre X' calculation gain check, gain[1][1][1][1] = " << gain[1][1][1][1] << endl; //Worked!
+cout << "Pre X' calculation sigma check (JUST used to remove MIPS), sig[1][1][1][1] = " << sig[1][1][1][1] << endl;
+cout << "Pre X' pulsed ch check, pulsed_ch[1][1][4][0] = " << pulsed_ch[1][1][4][0] << endl; //It worked!
+cout << "Pedestal ped[1][1][4][0] which IS used the calculation = " << ped[1][1][4][0] << endl;
+cout << "KY Iteration, one more loop!" << endl;
+
+////////////////////////////////////////////////////////
+// KY Last loop with pulsed channel calculation
+////////////////////////////////////////////////////////
+cnt=0;
+
+//Need NEW sum, sum2 and n vectors here! and new sigma variables because this is separate and different!
+//Might as well also have new pedestal variables too? Could compare them. Ideally would compare them and make sure they were the same.
+//This feels a bit excessive, but I think it will work so I will do it. I am not 100% sure it makes sense to use the same iteration framework as before?
+//Also going to want to save sigma histos as root files so I can continue to mess with them.
+//You will want to do something like this: hcol21->SaveAs("hcol21.root"); hcol21 is a 2D histo. I have code to pull and plot this.
+
+
+for (uint ie=0; ie<craw->GetEntries(); ie++){
+    //cout << "Event = " << ie << endl;
+
+  if(cnt==nev)break;
+  craw->GetEntry(ie);
+  if(rawtrk->eventid < evidmin )continue;
+  if(rawtrk->eventid > evidmax )continue;
+  cnt++;
+
+  fill_n(&module_n[0][0][0][0],NLAYERS*NROWS*NMODULES*2,0);
+  fill_n(&module_ok[0][0][0][0],NLAYERS*NROWS*NMODULES*2,true);
+  fill_n(&cn[0][0][0][0],NLAYERS*NROWS*NMODULES*NCN,0);
+  fill_n(&ncn[0][0][0][0],NLAYERS*NROWS*NMODULES*NCN,0);
+  fill_n( &adc[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
+  ////////////////////////////////////////////////////////
+  // Tag modules with particle signals
+  // count transmitted channels to find full modules
+  // Used pulsed channel to find signal X'_i = X_i - g_i/g_j * X_j. Where Xi = Raw_i - Ped_i
+  ////////////////////////////////////////////////////////
+
+  for(uint i=0; i<(uint)rawtrk->adcdata.size(); i++){
+
+	int layer  = rawtrk->layer[i];
+	int row    = rawtrk->row[i];
+	int module = rawtrk->module[i];
+	int channel = rawtrk->channel[i];
+	int half = (channel < (int)NCHANNELS/2 ? 0 : 1 );
+	int detector = (int)(channel/8);
+	int cnindex = 0;//(NCN==2 ? half : detector);
+    if(NCN==2) cnindex = half;
+    if(NCN==4) cnindex = detector;
+    double val = (double)(rawtrk->adcdata[i]) - ped[layer][row][module][channel];
+	double baseline = 0; //do not refer tominimum
+	double nsig =  (val - baseline )/sig[layer][row][module][channel]; //I think it's fine to use old sigma just for the MIP cutoff.
+
+	module_n[layer][row][module][half]++;
+
+    //
+    // condition to identify particle signals
+    //
+	bool ISHIT = false;
+	if(TMath::Abs(nsig)>sigcut) ISHIT=true;
+	if(val > mipcut) ISHIT=true;
+	if(ISHIT) module_ok[layer][row][module][0]=false;
+	if(ISHIT) module_ok[layer][row][module][1]=false;
+    //
+	//increment baseline counter
+    //
+	if( /*DOCNEVAL*/ true &&
+        //            !ISHIT && //ATTENZIONE !!!
+	    !disconnected[layer][row][module][channel] &&
+	    true){
+	  cn[layer][row][module][cnindex] += val ;
+	  ncn[layer][row][module][cnindex]++;
+	}
+  }
+
+  ////////////////////////////////////////////////////////
+  // Evaluate baseline
+  ////////////////////////////////////////////////////////
+  for(int il=0; il<NLAYERS; il++){
+	for(int ir=0; ir<NROWS; ir++){
+	  for(int im=0; im<NMODULES; im++){
+	    for(int ih=0; ih<NCN; ih++){
+	      if( ncn[il][ir][im][ih]>=ncnmin )
+		cn[il][ir][im][ih] /= ncn[il][ir][im][ih];
+	      else
+		cn[il][ir][im][ih] = 0;
+	      if( ncn[il][ir][im][ih] == 0 ) continue;
+	      //
+	      // check baseline shift
+          // (exclude events with too large baseline fluctuations...)
+	      //
+	      if(sigcn[il][ir][im][ih]==0)continue;
+	      if( TMath::Abs(cn[il][ir][im][ih]) > sigcncut*sigcn[il][ir][im][ih]  ){
+	      	module_ok[il][ir][im][0]=false;
+	      	module_ok[il][ir][im][1]=false;
+	      }
+		//Do we still want to be using this module_ok method? Let's start with yes. Or maybe no?
+	      //cout << endl << TMath::Abs(cn[il][ir][im][ih])<<" "<<sigcn[il][ir][im][ih];
+	      //
+	    }
+	  }
+	}
+  }
+
+
+  ////////////////////////////////////////////////////////
+  // Increment subtract baseline
+  ////////////////////////////////////////////////////////
+  // Seems like you need to iterate over the adcdata and save the adc of the pulsed channels.
+
+  for(uint i=0; i<(uint)rawtrk->adcdata.size(); i++){
+	int layer  = rawtrk->layer[i];
+	int row    = rawtrk->row[i];
+	int module = rawtrk->module[i];
+	int channel = rawtrk->channel[i];
+	int half = (channel < (int)NCHANNELS/2 ? 0 : 1 );
+	int detector = (int)(channel/8);
+	double val = (double)(rawtrk->adcdata[i]);
+	bool FULL = module_n[layer][row][module][half] == (int)NCHANNELS/2;
+	if(!FULL)continue;
+
+	//For these events, we need to pull the Xj of the pulsed channel. Oh just save the adc of everything lol.
+	//We can replicate here what was done
+	adc[layer][row][module][channel] = val;
+
+  }
+
+  for(uint i=0; i<(uint)rawtrk->adcdata.size(); i++){
+	int layer  = rawtrk->layer[i];
+	int row    = rawtrk->row[i];
+	int module = rawtrk->module[i];
+	int channel = rawtrk->channel[i];
+	int half = (channel < (int)NCHANNELS/2 ? 0 : 1 );
+	int detector = (int)(channel/8);
+	double val = (double)(rawtrk->adcdata[i]);
+	bool FULL = module_n[layer][row][module][half] == (int)NCHANNELS/2;
+	if(!FULL)continue;
+	//cout << "In the rawtrk i: " << i << " and lrms " << layer << row << module << channel << endl;
+	//cout << "Answer my adc " << adc[layer][row][module][channel] << endl; //Always zero, use val
+	//cout << "Val associated with rawtrk " << val << endl;
+	//cout << "Answer my pedestal " << ped[layer][row][module][channel] << endl;
+	//cout << "Is the module okay? " <<  module_ok[layer][row][module][half] << endl; //Remember the whole module is thrown out if there's a particle.
+	//Fill no cuts here
+
+	// Doing adc_pulsed here! Needed previous adc values from the loop.
+	// This part I am kind of sus on, how to handle the pulsed channel itself?
+	int pul_ch = pulsed_ch[layer][row][module][(int)floor(channel/(NCHANNELS/NCN))]; //0 or 0/1 or 0/1/2/3 for index. The value of adc or gain [l][r][m][pul_ch] is the adc of that pulsed channel or gain.
+	if(pul_ch >= 0 && channel != pul_ch) adc_pulsed[layer][row][module][channel] = adc[layer][row][module][channel] - (gain[layer][row][module][channel] / gain[layer][row][module][pul_ch])*(adc[layer][row][module][pul_ch]-ped[layer][row][module][pul_ch]);
+	if(channel == pul_ch) adc_pulsed[layer][row][module][channel] = adc[layer][row][module][channel];
+
+	if(module_ok[layer][row][module][half]){
+	    hsall_noMIPbline[layer][row][module]->Fill(adc[layer][row][module][channel]-ped[layer][row][module][channel]) ;
+	}
+
+	if(pul_ch >= 0){ //Only add this if there was a pulsed channel chosen.
+	    hspulse_nocuts[layer][row][module]->Fill(adc_pulsed[layer][row][module][channel]-ped[layer][row][module][channel]);
+		if( module_ok[layer][row][module][half] ){ //Doing module_ok cuts here
+		    hspulse_cuts[layer][row][module]->Fill(adc_pulsed[layer][row][module][channel]-ped[layer][row][module][channel]) ;
+		}
+	}
+
+		//}//end last iteration condition
+
+    } // end loop over hits
+
+  //At this point, the adc values from the event are found and stored and the sums can be added to and the n++ can happen WITHIN a module_ok flag.
+  //Need to do loop over the layers, rows, mods for this.
+  //Recall module_ok is determined on an event by eventbasis because sometimes MIP hit and sometimes not!
+
+  for(int il = 0 ; il<NLAYERS; il++){
+	for(int ir = 0 ; ir<NROWS; ir++){
+	  for(int im = 0 ; im<NMODULES; im++){
+	    // check if the module is transmitted full
+	    if(module_n[il][ir][im][0] != (int)NCHANNELS/2)continue;
+	    if(module_n[il][ir][im][1] != (int)NCHANNELS/2)continue;
+	    //ok, is full. increment counters
+
+	    if( module_ok[il][ir][im][0] &&	module_ok[il][ir][im][1] && true){
+         //-----------------------
+	     //--> GOOD for pedestals
+         //-----------------------
+
+	      for(int ic=0; ic<NCHANNELS;ic++){
+			int pul_ch = pulsed_ch[il][ir][im][(int)floor(ic/(NCHANNELS/NCN))];
+
+			//No noise correction but with module_ok flag sigma
+			sum_nocor[il][ir][im][ic]+=adc[il][ir][im][ic];
+			sum2_nocor[il][ir][im][ic]+=adc[il][ir][im][ic]*adc[il][ir][im][ic];
+			n_nocor[il][ir][im][ic]++;
+
+			//For pulsed channel sigma calculations
+			if(pul_ch >= 0){
+			    sum_pulsed[il][ir][im][ic]+=adc_pulsed[il][ir][im][ic];
+				sum2_pulsed[il][ir][im][ic]+=adc_pulsed[il][ir][im][ic]*adc_pulsed[il][ir][im][ic];
+				n_pulsed[il][ir][im][ic]++;
+			}
+
+	      }
+
+	    }else{
+
+         //-----------------------
+	      //--> NOT GOOD for pedestals
+         //-----------------------
+
+	    }
+
+	  }
+	}
+ }
+
+
+}//end loop over events
+
+//After the events are over you calculate the pedestal and sigma again for each strip.
+//Also need to do loop over the layers, rows, mods for this.
+//The sigma histograms can be filled in same loop as hsig and hped (below), use the different names.
+
+////////////////////////////////////////////////////
+cout << endl << "KY OOOOOOO Evaluate PED SIG";
+////////////////////////////////////////////////////
+
+fill_n( &ped_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+fill_n( &sig_pulsed[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+fill_n( &ped_nocor[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+fill_n( &sig_nocor[0][0][0][0],NLAYERS*NROWS*NMODULES*NCHANNELS,0);
+
+for(int il = 0 ; il<NLAYERS; il++){
+  for(int ir = 0 ; ir<NROWS; ir++){
+	for(int im = 0 ; im<NMODULES; im++){
+
+	  ////////////////// PED & SIG
+	  for(int ic = 0 ; ic<NCHANNELS; ic++){
+
+		int pul_ch = pulsed_ch[il][ir][im][(int)floor(ic/(NCHANNELS/NCN))];
+	    if( n_nocor[il][ir][im][ic] == 0  )continue;
+
+	    ped_nocor[il][ir][im][ic] = sum_nocor[il][ir][im][ic]/n_nocor[il][ir][im][ic];
+	    sig_nocor[il][ir][im][ic] = sum2_nocor[il][ir][im][ic]/n_nocor[il][ir][im][ic]; //A sum is involved, but also they keep note of an n which makes sense (line 820-ish ++-ed)
+	    sig_nocor[il][ir][im][ic] -= ped_nocor[il][ir][im][ic]*ped_nocor[il][ir][im][ic];
+	    sig_nocor[il][ir][im][ic] = TMath::Sqrt( sig_nocor[il][ir][im][ic] );
+
+		if(pul_ch >= 0 && n_pulsed[il][ir][im][ic] != 0){
+            ped_pulsed[il][ir][im][ic] = sum_pulsed[il][ir][im][ic]/n_pulsed[il][ir][im][ic];
+            sig_pulsed[il][ir][im][ic] = sum2_pulsed[il][ir][im][ic]/n_pulsed[il][ir][im][ic]; //A sum is involved, but also they keep note of an n which makes sense (line 820-ish ++-ed)
+            sig_pulsed[il][ir][im][ic] -=  ped_pulsed[il][ir][im][ic]*ped_pulsed[il][ir][im][ic];
+            sig_pulsed[il][ir][im][ic] = TMath::Sqrt( sig_pulsed[il][ir][im][ic] );
+		}
+
+      }
+    }
+  }
+}
+
+cout << endl << "Ultimate test of if this worked or not!! Compare the ped and sig from the last iteration to KY iterations" << endl;
+cout << "Former sig[1][1][1][1] = " << sig[1][1][1][1] << endl;
+cout << "Pulsed sig_pulsed[1][1][1][1] = " << sig_pulsed[1][1][1][1] << endl;
+cout << "Nocor sig_nocor[1][1][1][1] = " << sig_nocor[1][1][1][1] << endl;
+
+cout << "ped[1][1][4][0] = " << ped[1][1][4][0] << endl;
+cout << "ped_pulsed[1][1][4][0] which IS used the calculation = " << ped_pulsed[1][1][4][0] << endl;
+cout << "ped_nocor[1][1][4][0] which IS used the calculation = " << ped_nocor[1][1][4][0] << endl;
+
+//Shockingly this may have actually worked.
+//Should go over this one more time though to be sure.
+//Sigma distance and etc...should add. Also save everything as histogrammos
+
+//End KY extra iteration for pulse calculation
 
 
 
@@ -1097,7 +1451,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 	  if( n[il][ir][im][ic] == 0  )continue;
 	  hped->Fill(ir*NCHANNELS+ic,il*NMODULES+im,ped[il][ir][im][ic]);
 	  hpeddist->Fill(ped[il][ir][im][ic]);
-	  hsig->Fill(ir*NCHANNELS+ic,il*NMODULES+im,sig[il][ir][im][ic]);
+	  hsig->Fill(ir*NCHANNELS+ic,il*NMODULES+im,sig[il][ir][im][ic]); //Sigma is calculated before this KY iteration
 	  hsigdist->Fill(sig[il][ir][im][ic]);
           uint ch = il*NROWS*NMODULES*NCHANNELS + ir*NMODULES*NCHANNELS + im*NCHANNELS + ic;
           gsig0->AddPoint(ch,sig0[il][ir][im][ic]);
@@ -1235,7 +1589,28 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 
   vca.push_back(ccr4);
 
+  //==============================================================
+
+  TCanvas *ccr4p5 = new TCanvas("ccr4p5","Trk Raw",900,600);
+  ccr4p5->Divide(2,1);
+
+  /////////////////////////////////////////////// figura 1
+  ccr4p5->GetPad(1)->cd();
+
+  if(hsig_0)hsig_0->Draw("colz");
+
+  for( uint i=0; i<lines.size(); i++)lines.at(i)->Draw("same");
+  /////////////////////////////////////////////// figura 2
+  ccr4p5->GetPad(2)->cd();
+
+  if(hsig_0dist)hsig_0dist->Draw("");
+
+
+  vca.push_back(ccr4p5);
+
   cout << endl ;
+
+  //===============================================================
 
   // TCanvas *cc = new TCanvas("cc","",900,600);
   // cc->Divide(3,1);
@@ -1310,6 +1685,18 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 
 
 
+
+  //==============================================================
+  TCanvas *ccr7 = new TCanvas("ccr7","Trk Raw",900,600);
+  ccr7->SetLogz();
+  bsline_v_XigiB->GetXaxis()->SetTitle("Xi - gi*B");
+  bsline_v_XigiB->GetYaxis()->SetTitle("B");
+
+  if(bsline_v_XigiB)bsline_v_XigiB->Draw("colz");
+
+  /////////////////////////////////////////////// figura 2
+
+  vca.push_back(ccr7);
 
   //==============================================================
   TCanvas *css = new TCanvas("css","",900,600);
@@ -1389,12 +1776,20 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
         c->GetPad(im+1)->cd();
         c->GetPad(im+1)->SetLogy();
 
-        if( hsall0[il][ir][im] )hsall0[il][ir][im]->SetLineColor(38);
-        if( hsall0[il][ir][im] )hsall0[il][ir][im]->Draw();
-        if( hsmip[il][ir][im] )hsmip[il][ir][im]->SetLineColor(kRed);
-        if( hsmip[il][ir][im] )hsmip[il][ir][im]->Draw("same");
+        if( hsall_noMIPbline[il][ir][im] )hsall_noMIPbline[il][ir][im]->SetLineColor(kBlue+3);
+        if( hsall_noMIPbline[il][ir][im] )hsall_noMIPbline[il][ir][im]->Draw();
+        //if( hsall0[il][ir][im] )hsall0[il][ir][im]->SetLineColor(kBlue+3);
+        //if( hsall0[il][ir][im] )hsall0[il][ir][im]->Draw();
+        //if( hspulse_nocuts[il][ir][im] )hspulse_nocuts[il][ir][im]->SetLineColor(kRed+3);
+        //if( hspulse_nocuts[il][ir][im] )hspulse_nocuts[il][ir][im]->Draw("same");
+        if( hspulse_cuts[il][ir][im] )hspulse_cuts[il][ir][im]->SetLineColor(kRed);
+        if( hspulse_cuts[il][ir][im] )hspulse_cuts[il][ir][im]->Draw("same");
+        if( hsped[il][ir][im] )hsped[il][ir][im]->SetLineColor(kBlue);
         if( hsped[il][ir][im] )hsped[il][ir][im]->Draw("same");
         else cout << endl <<"L"<<il<<" R"<<ir<<" M"<<im<<" empty  ";
+
+        //if( hsmip[il][ir][im] )hsmip[il][ir][im]->SetLineColor(kRed);
+        //if( hsmip[il][ir][im] )hsmip[il][ir][im]->Draw("same");
       }
       c->Update();
       vca.push_back( c );

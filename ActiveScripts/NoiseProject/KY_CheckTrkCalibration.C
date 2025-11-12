@@ -257,7 +257,7 @@ TTree* ExtractRow(TString flist, int ll, int rr, std::string file , TString ddir
   return tree;
 };
 /////////////////////////////////////
-void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, Long64_t evidmax, TString ddir,TString suffix){
+void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, Long64_t evidmax, TString ddir,TString suffix, std::string maskfile){
 
 
   bool subcn = cnmod>0;
@@ -275,6 +275,10 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
   //----------------------------------------- raw event
   Crane::Calibration::CRawTrk *rawtrk = new Crane::Calibration::CRawTrk();
   craw->SetBranchAddress("Trk", &rawtrk);
+  //----------------------------------------- Prepare mask file
+  CCalib *data_calib = NULL;
+  data_calib = new  Crane::Calibration::CCalib();
+  data_calib->GetTrkCalib().SetMasks(maskfile);
 
   //-----------------------------------------
   // define histograms
@@ -922,13 +926,13 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
               if(disconnected[il][ir][im][ic])continue;
               double varbase = sigcn[il][ir][im][cnindex]*sigcn[il][ir][im][cnindex] - avsig2[cnindex];
               double G = 0; //Gain part right here!
-              double GG = 0; //Testing the Gigi Gain	
+              //double GG = 0; //Testing the Gigi Gain
 
 	      //Previous Elena method!
 	      //G = sig0[il][ir][im][ic]*sig0[il][ir][im][ic] - sig[il][ir][im][ic]*sig[il][ir][im][ic];
               //G /= (2 *  varbase);
               //G += 0.5;
-		
+
 	      G =  ((NCHANNELS/NCN) - 1)*sig0[il][ir][im][ic]*sig0[il][ir][im][ic] - (NCHANNELS/NCN)* sig[il][ir][im][ic]*sig[il][ir][im][ic];
 	      G /= (2 * (NCHANNELS/NCN) * varbase);
 	      G += 0.5;
@@ -1016,6 +1020,8 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
                 for(int i=0; i<N; i++){
                   uint ic = ih*N+i;
                   if(disconnected[il][ir][im][ic])continue;
+                  if(!data_calib->GetTrkCalib().IsGood(il,ir,im,ic))continue;
+                  if(data_calib->GetTrkCalib().IsGood(il,ir,im,ic)) cout << "Good channel" << il << ir << im << ic << endl;
                   sigma_n[i] = sig[il][ir][im][ic];//intrinsic noise
                   cgain[i]   = gain[il][ir][im][ic];//gain
                   if( sigma_n[i]/cgain[i] < val_best ){
@@ -1034,6 +1040,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
                   if(ped[il][ir][im][ic]==0)continue;
                   if(sig[il][ir][im][ic]==0)continue;
                   if(disconnected[il][ir][im][ic])continue;
+                  if(!data_calib->GetTrkCalib().IsGood(il,ir,im,ic))continue;
                   hpulser->Fill(ir*NCHANNELS+ic,il*NMODULES+im);//1
                   if(ic_best<0)continue;
                   hpulser->Fill(ir*NCHANNELS+ic,il*NMODULES+im);//1+1
@@ -1235,7 +1242,28 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 
   vca.push_back(ccr4);
 
+  //==============================================================
+
+  TCanvas *ccr4p5 = new TCanvas("ccr4p5","Trk Raw",900,600);
+  ccr4p5->Divide(2,1);
+
+  /////////////////////////////////////////////// figura 1
+  ccr4p5->GetPad(1)->cd();
+
+  if(hsig_0)hsig_0->Draw("colz");
+
+  for( uint i=0; i<lines.size(); i++)lines.at(i)->Draw("same");
+  /////////////////////////////////////////////// figura 2
+  ccr4p5->GetPad(2)->cd();
+
+  if(hsig_0dist)hsig_0dist->Draw("");
+
+
+  vca.push_back(ccr4p5);
+
   cout << endl ;
+
+  //===============================================================
 
   // TCanvas *cc = new TCanvas("cc","",900,600);
   // cc->Divide(3,1);
@@ -1391,8 +1419,9 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 
         if( hsall0[il][ir][im] )hsall0[il][ir][im]->SetLineColor(38);
         if( hsall0[il][ir][im] )hsall0[il][ir][im]->Draw();
-        if( hsmip[il][ir][im] )hsmip[il][ir][im]->SetLineColor(kRed);
-        if( hsmip[il][ir][im] )hsmip[il][ir][im]->Draw("same");
+        //if( hsmip[il][ir][im] )hsmip[il][ir][im]->SetLineColor(kRed);
+        //if( hsmip[il][ir][im] )hsmip[il][ir][im]->Draw("same");
+        if( hsped[il][ir][im] )hsped[il][ir][im]->SetLineColor(kRed);
         if( hsped[il][ir][im] )hsped[il][ir][im]->Draw("same");
         else cout << endl <<"L"<<il<<" R"<<ir<<" M"<<im<<" empty  ";
       }
