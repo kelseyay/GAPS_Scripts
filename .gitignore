@@ -45,4 +45,5 @@ build
 ignore
 *.swp
 .cache
-
+*.png
+*.root
