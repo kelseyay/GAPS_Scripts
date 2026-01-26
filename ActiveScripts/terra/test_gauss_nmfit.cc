@@ -42,10 +42,10 @@ using namespace std;
 void test_gauss_nmfit()
 {
     //There are the variables that change every time!!
-    int detnum = 788;
+    int detnum = 136;
     int run = 001;
-    int temp = 42; //Temperature in negative c, sorry, change me if needed
-    string strips[] = {"A","B","C","D"};
+    int temp = 37; //Temperature in negative c, sorry, change me if needed
+    string strips[] = {"A2","E","F1","F2","G"};
 
     //string strips[] = {"D","C","B","A"};
     //Variable strip and strip names. It's okay if some are missing and it's okay if some are not found. It is also okay if the order is different than the .dat file.
@@ -117,7 +117,7 @@ void test_gauss_nmfit()
     TGraphErrors *g[nstrips];
     TF1 *f[nstrips];
     for(int j = 0;j<nstrips;j++){
-        f[j] = new TF1(TString::Format("f%s",strips[j].c_str()),"sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",0,40);
+        f[j] = new TF1(TString::Format("f%s",strips[j].c_str()),"sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",xmin,xmax);
         f[j]->SetLineColor(j+1);
         f[j]->SetParameters(5e5, 1e-5, 1);
         g[j] = new TGraphErrors(36);
@@ -152,11 +152,11 @@ void test_gauss_nmfit()
     auto legend = new TLegend(0.15,0.7,0.88,0.89);
 
     //Set all of the graph parameters on the first plot and the others are drawn on the same plot
+
+    g[0]->Draw();
     g[0]->SetLineWidth(0);
     g[0]->SetMarkerColor(1);
     g[0]->SetMarkerStyle(3);
-    g[0]->GetXaxis()->SetRangeUser(xmin,xmax);
-    g[0]->GetYaxis()->SetRangeUser(ymin,ymax);
     g[0]->SetTitle(0);
     g[0]->GetXaxis()->CenterTitle();
     g[0]->GetXaxis()->SetTitle("Peaking time [#mus]");
@@ -164,15 +164,22 @@ void test_gauss_nmfit()
     g[0]->GetYaxis()->CenterTitle();
     g[0]->GetYaxis()->SetTitle("X-ray FWHM [keV]");
     g[0]->Fit(f[0],"","same", xmin,xmax);
-    g[0]->Draw();
+
+    auto xaxis = g[0]->GetXaxis();
+    auto yaxis = g[0]->GetYaxis();
+    xaxis->SetMoreLogLabels();
+    yaxis->SetMoreLogLabels();
+    xaxis->SetLimits(xmin,xmax);
+    g[0]->GetHistogram()->SetMinimum(2.);
+    g[0]->GetHistogram()->SetMaximum(20.);
 
     if(nstrips > 1){ //No error even if nstrips = 1.
         for(int j=1;j<nstrips;j++){
+            g[j]->Draw("sameP");
             g[j]->SetLineWidth(0);
             g[j]->SetMarkerColor(j+1);
             g[j]->SetMarkerStyle(3);
             g[j]->Fit(f[j],"","same", xmin,xmax);
-            g[j]->Draw("same");
         }
     }
 
@@ -194,15 +201,16 @@ void test_gauss_nmfit()
     }
 
     fout.close();
-
-    //Alright well I'm not sure why the axes are automatically fitted to a better range, but I'll fix that later
     legend->Draw();
+
+    myc->SaveAs(TString::Format("det%i-run%i-%iC-nmfit.pdf",detnum,run,temp));
+    myc->SaveAs(TString::Format("det%i-run%i-%iC-nmfit.png",detnum,run,temp));
 
     //cout << "Test of format " << TString::Format("strip%s",strips[0]) << endl;
     //cout << "Test of format " << "strip"+strips[0] << endl;
-    cout << "Nstrips = " << nstrips << endl;
-    cout << "Strip[0] is " << strips[0] << endl;
-    cout << "npstrips[0] = " << npstrip[0] << endl;
-    cout << "Hello World!!" << endl;
+    //cout << "Nstrips = " << nstrips << endl;
+    //cout << "Strip[0] is " << strips[0] << endl;
+    //cout << "npstrips[0] = " << npstrip[0] << endl;
+    //cout << "Hello World!!" << endl;
 
 }
