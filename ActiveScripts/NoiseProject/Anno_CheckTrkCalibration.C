@@ -465,7 +465,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
   nev = TMath::Min((Long64_t)nev,(Long64_t)craw->GetEntries());
   //  cout << endl << " using "<<nev<<" events";
   int cnt=0;
-  for (uint ie=0; ie<craw->GetEntries(); ie++){
+  for (uint ie=0; ie<craw->GetEntries(); ie++){ //First loop over all the events, let's see what we're trying to do.
 
     if(cnt==nev)break;
 
@@ -497,7 +497,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
       int module = rawtrk->module[i];
       int channel = rawtrk->channel[i];
       int half = (channel < (int)NCHANNELS/2 ? 0 : 1 );
-      module_n[layer][row][module][half]++;
+      module_n[layer][row][module][half]++; //You're filling this module thing. I'm not sure what it is.
     }
     //
     // fill adc vector for this event
@@ -513,7 +513,7 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
       bool FULL = module_n[layer][row][module][half] == (int)NCHANNELS/2;
       if(!FULL)continue;//go to next event
 
-      double val = (double)(rawtrk->adcdata[i]);
+      double val = (double)(rawtrk->adcdata[i]); //Value is the adc. This is fine.
       adc[layer][row][module][channel] = val;
 
     }
@@ -531,9 +531,9 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
           hfull->Fill(ir,il*NMODULES+im);
 	  //ok, is full. increment counters
 	  for(int ic=0; ic<NCHANNELS;ic++){
-	    sum[il][ir][im][ic]+=adc[il][ir][im][ic];
-	    sum2[il][ir][im][ic]+=adc[il][ir][im][ic]*adc[il][ir][im][ic];
-	    n[il][ir][im][ic]++;
+	    sum[il][ir][im][ic]+=adc[il][ir][im][ic]; //Sum of the adc's in NCHANNELS. Each channel gets it own.
+	    sum2[il][ir][im][ic]+=adc[il][ir][im][ic]*adc[il][ir][im][ic]; //This is just sum squared
+	    n[il][ir][im][ic]++; //Then if you're doing sums then you're also incrementing the counter.
 	  }
 	}
       }
@@ -553,10 +553,10 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
 	bool OK = false;
 	for(int ic = 0 ; ic<NCHANNELS; ic++){
 	  if( n[il][ir][im][ic] == 0  )continue;
-	  ped[il][ir][im][ic] = sum[il][ir][im][ic]/n[il][ir][im][ic];
-	  sig[il][ir][im][ic] = sum2[il][ir][im][ic]/n[il][ir][im][ic];
-	  sig[il][ir][im][ic] -= ped[il][ir][im][ic]*ped[il][ir][im][ic];
-	  sig[il][ir][im][ic] = TMath::Sqrt( sig[il][ir][im][ic] );
+	  ped[il][ir][im][ic] = sum[il][ir][im][ic]/n[il][ir][im][ic]; //OKAY So it's just the sum of all the events divided by the number of events that's totally A-okay cool TM
+	  sig[il][ir][im][ic] = sum2[il][ir][im][ic]/n[il][ir][im][ic]; //Sigma is juuuuust the sum of all the guys^2, divided by n
+	  sig[il][ir][im][ic] -= ped[il][ir][im][ic]*ped[il][ir][im][ic]; //THEN MINUS THE PEDESTAL SQUARED makes sense right? Maybe look that over.
+	  sig[il][ir][im][ic] = TMath::Sqrt( sig[il][ir][im][ic] ); //Then square root.
 	  OK=true;
 	}
       }
@@ -649,47 +649,35 @@ void EvaluatePedestals(TString flist, int cnmod ,Long64_t nev,Long64_t evidmin, 
       ////////////////////////////////////////////////////////
       for(uint i=0; i<(uint)rawtrk->adcdata.size(); i++){
 
-	int layer  = rawtrk->layer[i];
+          int layer  = rawtrk->layer[i];
 	int row    = rawtrk->row[i];
 	int module = rawtrk->module[i];
 	int channel = rawtrk->channel[i];
 	int half = (channel < (int)NCHANNELS/2 ? 0 : 1 );
 	int detector = (int)(channel/8);
 	int cnindex = 0;//(NCN==2 ? half : detector);
-        if(NCN==2) cnindex = half;
-        if(NCN==4) cnindex = detector;
- 	double val = (double)(rawtrk->adcdata[i]) - ped[layer][row][module][channel];
+                 if(NCN==2) cnindex = half;
+                 if(NCN==4) cnindex = detector;
+          	double val = (double)(rawtrk->adcdata[i]) - ped[layer][row][module][channel];
 	double baseline = 0; //do not refer tominimum
 	//	dounle baseline = min[layer][row][module][cnindex];
-	double nsig =  (val - baseline )/sig[layer][row][module][channel]; //baseline - 0 though?
+	double nsig =  (val - baseline )/sig[layer][row][module][channel];
 
 	module_n[layer][row][module][half]++;
 
-        //
-        // condition to identify particle signals
-        //
+                 //
+                 // condition to identify particle signals
+                 //
 	bool ISHIT = false;
 	if(TMath::Abs(nsig)>sigcut) ISHIT=true;
 	if(val > mipcut) ISHIT=true;
 	if(ISHIT) module_ok[layer][row][module][0]=false;
 	if(ISHIT) module_ok[layer][row][module][1]=false;
-        //
-//increment baseline counter
-        //
-if( DOCNEVAL &&
-            //            !ISHIT && //ATTENZIONE !!!
-!disconnected[layer][row][module][channel] &&
-true){
-cn[layer][row][module][cnindex] += val ;
-ncn[layer][row][module][cnindex]++;
-}mipcut) ISHIT=true;
-	if(ISHIT) module_ok[layer][row][module][0]=false;
-	if(ISHIT) module_ok[layer][row][module][1]=false;
-        //
+                 //
 	//increment baseline counter
-        //
+                 //
 	if( DOCNEVAL &&
-            //            !ISHIT && //ATTENZIONE !!!
+                     //            !ISHIT && //ATTENZIONE !!!
 	    !disconnected[layer][row][module][channel] &&
 	    true){
 	  cn[layer][row][module][cnindex] += val ;
@@ -697,7 +685,7 @@ ncn[layer][row][module][cnindex]++;
 	}
 	if(it==niter && !disconnected[layer][row][module][channel])hhh->Fill(nsig);
 
-      }
+    }
 
       ////////////////////////////////////////////////////////
       // Evaluate baseline
@@ -881,7 +869,7 @@ ncn[layer][row][module][cnindex]++;
 
 
 	    ped[il][ir][im][ic] = sum[il][ir][im][ic]/n[il][ir][im][ic];
-	    sig[il][ir][im][ic] = sum2[il][ir][im][ic]/n[il][ir][im][ic];
+	    sig[il][ir][im][ic] = sum2[il][ir][im][ic]/n[il][ir][im][ic]; //A sum is involved, but also they keep note of an n which makes sense (line 820-ish ++-ed)
 	    sig[il][ir][im][ic] -=  ped[il][ir][im][ic]*ped[il][ir][im][ic];
 	    sig[il][ir][im][ic] = TMath::Sqrt( sig[il][ir][im][ic] );
             disconnected[il][ir][im][ic] = (sig[il][ir][im][ic]<sigmin); //Disconnected use a bool that is used if sigma < sigmin.
@@ -937,6 +925,7 @@ ncn[layer][row][module][cnindex]++;
               if(sig[il][ir][im][ic]==0)continue;
               if(sigcn[il][ir][im][cnindex]==0)continue;
               if(disconnected[il][ir][im][ic])continue;
+              //Could add masking here if want to exculde in calculations?
               double varbase = sigcn[il][ir][im][cnindex]*sigcn[il][ir][im][cnindex] - avsig2[cnindex];
               double G = 0; //Gain part right here!
               double GG = 0; //Testing the Gigi Gain
@@ -1016,14 +1005,15 @@ ncn[layer][row][module][cnindex]++;
         for(int il = 0 ; il<NLAYERS; il++){
           for(int ir = 0 ; ir<NROWS; ir++){
             for(int im = 0 ; im<NMODULES; im++){
+                //Going through modules
               /////////////////////////////////////////// gains - intrinsic - c
-              const int N = NCHANNELS/NCN;
-              double sigma_n[N];
+              const int N = NCHANNELS/NCN; //Based on NCN, either 1 (mod), 2 (half-mod) 1, 4 (det)
+              double sigma_n[N]; //Making one for each channel within the NCN framework: 8, 16, or 32
               double cgain[N];
               double sigma_c;
 
               for(int ih=0; ih<NCN; ih++){	    //1-2-4
-                int ic_best = -1;
+                int ic_best = -1; //For the module, Choosing a best channel for each NCN
                 int i_best  = -1;
                 int ic_min  = -1;
                 int i_min   = -1;
@@ -1031,35 +1021,40 @@ ncn[layer][row][module][cnindex]++;
                 sigma_c = sigcn[il][ir][im][ih]; //RMS(baseline)
                 //------------------------------------- search minimum/best
                 for(int i=0; i<N; i++){
-                  uint ic = ih*N+i;
-                  if(disconnected[il][ir][im][ic])continue;
+                  uint ic = ih*N+i; //This is the chnanel itself, ih (NCN indexer plus i, the channel)
+                  if(disconnected[il][ir][im][ic])continue; //This would be an extremely easy way/place to add in the masking.
+                  //It's evaluated and masked on a channel by channel basis which is cool and good.
                   sigma_n[i] = sig[il][ir][im][ic];//intrinsic noise
                   cgain[i]   = gain[il][ir][im][ic];//gain
-                  if( sigma_n[i]/cgain[i] < val_best ){
-                    ic_min   = ic;
-                    i_min    = i;
-                    val_best = sigma_n[i]/cgain[i];
-                    if( sigma_n[i]/cgain[i] < sigma_c ){
-                      ic_best = ic;
+                  if( sigma_n[i]/cgain[i] < val_best ){ //Best value is determined by sigma/cgain! Iterate through channels finding the smallest
+                    ic_min   = ic; //This is the actual channel number
+                    i_min    = i; //i is the indexer within the NCN
+                    val_best = sigma_n[i]/cgain[i]; //Value of the best gain.
+                    if( sigma_n[i]/cgain[i] < sigma_c ){ //Note the noise removal procedure only works if sigma/gain < sigma_c.
+                      ic_best = ic; //Not clear right now why ic_min and ic_best are calculated separately, but maybe that will be clear in a few moments.
                       i_best  = i;
                     }
                   }
                 }
                 // fill histo
-                for(int i=0; i<N; i++){
+                for(int i=0; i<N; i++){ //Once again, iterate over the channels in the NCN group, now that ic_best and ic_min are determined.
                   uint ic = ih*N+i;
                   if(ped[il][ir][im][ic]==0)continue;
                   if(sig[il][ir][im][ic]==0)continue;
-                  if(disconnected[il][ir][im][ic])continue;
+                  if(disconnected[il][ir][im][ic])continue; //Also add the masking in here for sure
+                  //AH OKAY I think I understand. You can fill a baseline with just 1 hit. Then fill again if ic_best > 0, then fill one last time if ic_best > 0
+                  //Zero means pedestal is 0, sigma is 0, or it's disconnected from the ADC calculation before.
                   hpulser->Fill(ir*NCHANNELS+ic,il*NMODULES+im);//1
                   if(ic_best<0)continue;
-                  hpulser->Fill(ir*NCHANNELS+ic,il*NMODULES+im);//1+1
+                  hpulser->Fill(ir*NCHANNELS+ic,il*NMODULES+im);//1+1 //If IC_best is not < 0 give all of the chanels a hit
                 }
-                if(ic_best>=0){
-                  hpulser->Fill(ir*NCHANNELS+ic_best,il*NMODULES+im);//1+1+1
+                if(ic_best>=0){ //ic_best can be channel 0 to NCHANNELS/NCN. This is in its own if statement, so it just gets done at the end after the first loop.
+                  hpulser->Fill(ir*NCHANNELS+ic_best,il*NMODULES+im);//1+1+1 //Give one hit to ic_best now!!
                   //                  std::cout<<std::endl<<il<<ir<<im<<" - "<<ih<<" - channel best "<<ic_best;
                 }
-                if(ic_min>=0)chmin[il][ir][im].push_back(ic_min);
+                if(ic_min>=0)chmin[il][ir][im].push_back(ic_min); //chmin has chmin[l][r][m]. push_back(ic_min) adds an element to the end.
+                    //vector<int> variables are accessed with v[1][1].at(0) if you have added like this: v[1][1].push_back(3)
+                    //if ic_min isn't -1 then you will get a valid ic_min value which can be stored in the chmin vector.
 
                 ///////////////////////////////
                 for(int i=0; i<N; i++){
@@ -1114,7 +1109,7 @@ ncn[layer][row][module][cnindex]++;
 	  if( n[il][ir][im][ic] == 0  )continue;
 	  hped->Fill(ir*NCHANNELS+ic,il*NMODULES+im,ped[il][ir][im][ic]);
 	  hpeddist->Fill(ped[il][ir][im][ic]);
-	  hsig->Fill(ir*NCHANNELS+ic,il*NMODULES+im,sig[il][ir][im][ic]);
+	  hsig->Fill(ir*NCHANNELS+ic,il*NMODULES+im,sig[il][ir][im][ic]); //So this is where sigma is filled
 	  hsigdist->Fill(sig[il][ir][im][ic]);
           uint ch = il*NROWS*NMODULES*NCHANNELS + ir*NMODULES*NCHANNELS + im*NCHANNELS + ic;
           gsig0->AddPoint(ch,sig0[il][ir][im][ic]);
@@ -1162,7 +1157,7 @@ ncn[layer][row][module][cnindex]++;
           fs << setw(4) <<il;
           fs << setw(4) <<ir;
           fs << setw(4) <<im;
-          for(auto ic:chmin[il][ir][im])fs << setw(4) << ic;
+          for(auto ic:chmin[il][ir][im])fs << setw(4) << ic; //There will be values push_back stored in chmin[il][ir][im].
         }
       }
     }
@@ -1241,7 +1236,7 @@ ncn[layer][row][module][cnindex]++;
   /////////////////////////////////////////////// figura 1
   ccr4->GetPad(1)->cd();
 
-  if(hsig)hsig->Draw("colz");
+  if(hsig)hsig->Draw("colz"); //hsig is the sigma with corrections
 
   for( uint i=0; i<lines.size(); i++)lines.at(i)->Draw("same");
   /////////////////////////////////////////////// figura 2

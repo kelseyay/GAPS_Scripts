@@ -47,3 +47,8 @@ ignore
 .cache
 *.png
 *.root
+*.ipynb_checkpoints/*
+*.pdf
+*.pcm
+ActiveScripts/EdepTest/
+*.zip

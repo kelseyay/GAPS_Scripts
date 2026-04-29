@@ -1,0 +1,4 @@
+Filename : /home/kelsey/simulations/simdat/simnew/*.root
+Beta Cut : 0.800000
+Total Entries : 4222034
+Layer 	 Row 	 Mod 	 Det 	 Strip 	 MPV 	 Sigma 	 NEntries

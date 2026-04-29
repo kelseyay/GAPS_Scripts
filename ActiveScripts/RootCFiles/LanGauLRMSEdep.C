@@ -121,7 +121,7 @@ char FilenameRoot[400];
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/mvtest/ethernet241213_145*.root"); //Personal Computer
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/ethernet241213_1451_rec.root"); //Personal Computer
 //sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //210 simu data on my computer!
-sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //212 sim personal computer
+sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/v.2.1.2/*.root"); //212 sim personal computer
 
 int MainLoopScaleFactor = 1; //Set this number to scale the step size. Larger means runs faster and fewer events
 double TrackerCut = 0.3; //Threshold for an energy deposition to be considered a hit

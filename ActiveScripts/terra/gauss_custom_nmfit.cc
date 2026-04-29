@@ -1,4 +1,23 @@
-//TAKE A MORE CAREFUL LOOK AT THIS
+//How to use:
+//https://www.dropbox.com/home/Kelsey%20Yee/Perez%20Lab%20GAPS%20Dropbox/Procedure%20documents/Si(Li)%20testing?quickview=id%3AOM0kEQTEUcAAAAAAAApeug
+//I'll tell you as soon as I figure it out
+
+//Start with a summary-det.dat file which can be read by normal humans
+//Turn the summary file into a root file which I think is kind of silly lol
+// ./gauss_res2root.cc <summary>.dat <summary>.root
+//Next you edit your gauss_custom_nmfit.cc (Hey that's me! / This program!)
+//Change the detnum, run, and strips.
+// ALSO HEY go ahead and change the Ctot to match the kind of strip(s) you're looking at:
+// Ctot = Cstrip + Cfet + Cint + Cstray
+//      = Cstrip + 10 pF + 20 pF
+// Cstrip (8-strip) ~ 37-39 pF, Cstr (4-strip) ~77 pF
+// https://arxiv.org/pdf/2305.00283
+// Can estimate C_16_strip as ~19 pF
+// I AM SO CLEVER LOL!
+
+// root
+// .L gauss_custom_nmfit.cc+
+// test_gauss_nmfit()
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,6 +30,7 @@
 #include <vector>
 #include <iterator>
 
+#include <TLegend.h>
 #include "TROOT.h"
 #include "TFile.h"
 #include "TTree.h"
@@ -39,15 +59,15 @@ using namespace std;
 
 //Might as well start off ambitious, let's try to make a function for any number of strips?
 //It might be best to just have that me this function...? There's a fit involved. Don't want to have a variable for every strip. Can do what was done for LRMS then
-//
 
 void test_gauss_nmfit()
 {
     //There are the variables that change every time!!
     int detnum = 136;
     int run = 001;
-    int temp = 37; //Temperature in negative c, sorry, change me if needed
-    string strips[] = {"A2","E","F1","F2","G"};
+    int temp = 42; //Temperature in negative c, sorry, change me if needed
+    int Cstrip = 16; //Units of pF, use: 77 for 4-strip, 40 for 8-strip, 19 for 16-strip.
+    string strips[] = {"A2","F1","F2"};
 
     //string strips[] = {"D","C","B","A"};
     //Variable strip and strip names. It's okay if some are missing and it's okay if some are not found. It is also okay if the order is different than the .dat file.
@@ -55,8 +75,8 @@ void test_gauss_nmfit()
     //string strips[] = {"A","B","C","potato"};
 
     //You can change axis ranges if you want:
-    float xmin = 0.5;
-    float xmax = 20;
+    float xmin = 0.4;
+    float xmax = 30;
     float ymin = 1;
     float ymax = 20;
 
@@ -97,7 +117,9 @@ void test_gauss_nmfit()
     double enc2 = 0.;
     double fwhm = 0.;
 
-    double Ctot = 70e-12; //TAKE A CLOSE LOOK!
+    double Ctot = 49e-12; //(Cstrip + 30)*10^-12;
+    //Cstrip (~38 pF or ~38 pF/2) + 10 pF + 20 pF
+    //Ctot = Cstrip + Cfet + Cint + Cstray
 
     TTree *tin = (TTree*)fin->Get("tree");
 

@@ -119,8 +119,8 @@ char FilenameRoot[400];
 
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/mvtest/ethernet241213_145*.root"); //Personal Computer
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/ethernet241213_1451_rec.root"); //Personal Computer
-//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //210 simu data on my computer!
-sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //212 sim personal computer
+sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //210 simu data on my computer!
+//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //212 sim personal computer
 
 int MainLoopScaleFactor = 1; //Set this number to scale the step size. Larger means runs faster and fewer events
 double TrackerCut = 0.3; //Threshold for an energy deposition to be considered a hit
@@ -159,9 +159,8 @@ for(int s = 0; s < nstrips; s++){strps[s] = s;}
 
 //Need a histogram and fitting function for every strip
 TH1F * h[nlayers][nrows][nmods][nstrips];
-TF1 * g1[nlayers][nrows][nmods][nstrips];
 
-auto hcol21 = new TH2F("hcol21","MPV Full Tracker",nrows*nstrips,0,nrows*nstrips,nlayers*nmods,0,nlayers*nmods);
+//auto hcol21 = new TH2F("hcol21","MPV Full Tracker",nrows*nstrips,0,nrows*nstrips,nlayers*nmods,0,nlayers*nmods);
 auto hnentries = new TH2F("hnentries","Full Tracker Strip-Level NHits",nrows*nstrips,0,nrows*nstrips,nlayers*nmods,0,nlayers*nmods);
 
 for(int l = 0;l<nlayers;l++){
@@ -169,7 +168,6 @@ for(int l = 0;l<nlayers;l++){
                 for(int m = 0; m < nmods; m++){
                         for(int s = 0; s < nstrips; s++){
                                 h[l][r][m][s] = new TH1F (TString::Format("h0_l%ir%im%is%i",l,r,m,s), ("Edep l" + to_string(lyr[l]) + "r" + to_string(rw[r]) + "m" + to_string(md[m]) + "s" + to_string(strps[s])).c_str(), NBins, xlow,xhigh);
-                                g1[l][r][m][s] = new TF1("g1", "landau", fitlow, fithigh);
                         }
                 }
         }
@@ -209,13 +207,14 @@ for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor){
 		bool Umbflag = 0;
 		bool CBEtopflag = 0;
 		bool CBEbotflag = 0;
+		cout << "Event number " << i << endl;
 
 		CTrackRec* pt = Event->GetPrimaryTrack();
 		uint pt_index = 0;
    	        for( ; pt_index < Event->GetNTracks(); pt_index++) if( Event->GetTrack(pt_index)->IsPrimary() ) break;
 
 		//Note downwards beta enforced by Event->GetPrimaryBeta() (should be positive) multiplied by Event->GetPrimaryMomentumDirection()[2] (z trajectory of particle)
-		if(pt != nullptr && -fabs(Event->GetPrimaryMomentumDirection().CosTheta()) > -coslow && -fabs(Event->GetPrimaryMomentumDirection().CosTheta()) < -coshigh && Event->GetPrimaryBeta()*Event->GetPrimaryMomentumDirection()[2] < 0 && /*fabs(Event->GetPrimaryBetaGenerated())*/ fabs(Event->GetPrimaryBeta()) >  betacut){		  	
+		if(pt != nullptr && -fabs(Event->GetPrimaryMomentumDirection().CosTheta()) > -coslow && -fabs(Event->GetPrimaryMomentumDirection().CosTheta()) < -coshigh && Event->GetPrimaryBeta()*Event->GetPrimaryMomentumDirection()[2] < 0 && fabs(Event->GetPrimaryBeta()) >  betacut){		  	
 			//cout << "Event is " << i << endl;
 
 			//-----------EVENT LEVEL CUT APPLIED
@@ -243,15 +242,19 @@ for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor){
 						int mod = getmod(layer,sdmod);
 						int strip = getch(layer, det, sdstrip);
 
+						//cout << "lrms" << layer << row << mod << strip << endl;
 						//cout << "Edep * Cos(theta) " << Event->GetTrack(0)->GetEnergyDeposition(isig)*fabs(Event->GetPrimaryMomentumDirection().CosTheta() << endl;
-						h[layer][row][mod][strip]->Fill(  (Event->GetTrack(0)->GetEnergyDeposition(isig)*fabs(Event->GetPrimaryMomentumDirection().CosTheta()))   );
-						hnentries->Fill(row*32+strip,layer*6+mod);
+						if(layer < nlayers){ //This line prevents a segfault in the case of wanting to do fewer layers than the whole tracker
+							h[layer][row][mod][strip]->Fill(  (Event->GetTrack(0)->GetEnergyDeposition(isig)*fabs(Event->GetPrimaryMomentumDirection().CosTheta()))   );
+							hnentries->Fill(row*32+strip,layer*6+mod);
+						}
 
 					} //Closed bracket for Tracker volume and tracker cutoff
 
 				} //Closed bracket for iteration over event with TOF cuts
 
 			} //Closed bracket for if statement for cuts
+			
 
 			//-----------EVENT LEVEL CUTS END
 
@@ -268,7 +271,24 @@ for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor){
 //--------------------------------------
 
 myfile.open("EdepList.txt",std::ios::app);
+TList *hlist = new TList();
+TH1F *hnotes;
+hnotes = new TH1F (TString::Format("Bcut%f",betacut),FilenameRoot,1,1,1);
+hlist->Add(hnotes);
 
+for(int l = 0; l<nlayers;l++){
+        for(int r = 0; r<nrows;r++){
+                for(int m = 0; m < nmods; m++){
+			for(int s = 0; s < nstrips;s++){
+				hlist->Add(h[l][r][m][s]);
+				myfile << (TString::Format(    "%i \t %i \t %i \t %i \t %i \n",l,r,m,s, static_cast<int>(h[l][r][m][s]->GetEntries())   ));
+			}
+		}
+        }
+}
+
+
+/*
 for(int l = 0; l<nlayers;l++){
         for(int r = 0; r<nrows;r++){
                 for(int m = 0; m < nmods; m++){
@@ -288,7 +308,6 @@ for(int l = 0; l<nlayers;l++){
                                         h[l][r][m][s]->GetXaxis()->SetTitle("Energy Deposition of Hit * Cos(#theta) (MeV)");
                                         h[l][r][m][s]->GetYaxis()->SetTitle("Number of Events");
                                         EdepCompare->cd((s % 8)+1);
-                                        h[l][r][m][s]->Fit(g1[l][r][m][s],"R");
                                         gPad->SetGridx(1);
                                         gPad->SetGridy(1);
                                         gPad->SetLogy(1);
@@ -296,9 +315,9 @@ for(int l = 0; l<nlayers;l++){
                                         gStyle->SetOptFit();
                                         h[l][r][m][s]->Draw();
 
-					hcol21->Fill(r*32 + s,l*6 + m,g1[l][r][m][s]->GetParameter(1));
-					//mpv[r*32+s][l*6+k] = g1[l][r][k][s]->GetParameter(1); //Save the calculated MPV, it will be used for the histogram
-                                	myfile << (TString::Format(    "%i \t %i \t %i \t %i \t %f \t %f \t %i \n",l,r,m,s,g1[l][r][m][s]->GetParameter(1),g1[l][r][m][s]->GetParameter(2), static_cast<int>(h[l][r][m][s]->GetEntries())   ));
+					//hcol21->Fill(r*32 + s,l*6 + m,g1[l][r][m][s]->GetParameter(1));
+                                	hlist->Add(h[l][r][m][s]);
+					myfile << (TString::Format(    "%i \t %i \t %i \t %i \t %i \n",l,r,m,s, static_cast<int>(h[l][r][m][s]->GetEntries())   ));
 				
 				}
 	
@@ -313,31 +332,70 @@ for(int l = 0; l<nlayers;l++){
                 }
         }
 }
+*/
+
+TFile *f = new TFile("histlist.root","RECREATE");
+hlist->Write();
+f->Close();
+
+//Debugging mode:
+/*
+int l = 0;
+int r = 0;
+int m = 0;
+int j = 0;
+
+TCanvas * EdepCompare = new TCanvas("EdepCompare", "EdepCompare", 200, 10, 1800, 900);
+EdepCompare->SetLeftMargin(0.11);
+EdepCompare->SetRightMargin(0.04);
+EdepCompare->SetTopMargin(0.04);
+TLegend* LegEdepCompare = new TLegend(0.5, 0.75, 0.95, 0.95);
+LegEdepCompare->SetFillColor(0);
+
+EdepCompare->Divide(4,2);
+
+for(int s = 0 + 8*j; s < 8 + 8*j;s++){
+	h[l][r][m][s]->SetLineColor(1);
+	h[l][r][m][s]->GetXaxis()->SetTitle("Energy Deposition of Hit * Cos(#theta) (MeV)");
+	h[l][r][m][s]->GetYaxis()->SetTitle("Number of Events");
+	EdepCompare->cd((s % 8)+1);
+	//h[l][r][m][s]->Fit(g1[l][r][m][s],"R");
+	gPad->SetGridx(1);
+	gPad->SetGridy(1);
+	gPad->SetLogy(1);
+	gStyle->SetTitleW(0.9);
+	gStyle->SetOptFit();
+	h[l][r][m][s]->Draw();
+
+	//hcol21->Fill(r*32 + s,l*6 + m,g1[l][r][m][s]->GetParameter(1));
+	//mpv[r*32+s][l*6+k] = g1[l][r][k][s]->GetParameter(1); //Save the calculated MPV, it will be used for the histogram
+	myfile << (TString::Format(    "%i \t %i \t %i \t %i \t %i \n",l,r,m,s, static_cast<int>(h[l][r][m][s]->GetEntries())   ));
+
+}
+
+string title = "FullEdepl" + to_string(lyr[l]) + "r" + to_string(rw[r]) + "m" + to_string(md[m]) + "d" + to_string(dt[j]);
+char name[400];
+sprintf(name, "%s.root",title.c_str());
+EdepCompare->SaveAs(name);
+sprintf(name, "%s.png",title.c_str());
+EdepCompare->SaveAs(name);
 
 myfile.close();
 
-TCanvas * c1 = new TCanvas("c1", "c1", 200, 10, 900, 900);
-c1->SetLeftMargin(0.1);
-c1->SetRightMargin(0.16);
-c1->SetTopMargin(0.1);
-c1->SetBottomMargin(0.1);
-hcol21->SetBit(TH1::kNoStats);
-hcol21->GetXaxis()->SetTitle("row(0-6)*32 + det(0-3)*8 + strp (0-7)");
-hcol21->GetYaxis()->SetTitle("layer(0-7)*6 + mod(0-6)");
-hcol21->GetZaxis()->SetTitle("Energy Deposition MPV * Cos(#theta) (MeV)");
-hcol21->Draw("COLZ");
-hcol21->SetMaximum(mpvmax);
-hcol21->SetMinimum(mpvmin);
+hlist->Add(h[0][0][0][0]);
+hlist->Add(h[0][0][0][1]);
+hlist->Add(h[0][0][0][2]);
+//hlist->SaveAs(hlist.root);
 
-hcol21->SaveAs("hcol21.root");
-hcol21->SaveAs("hcol21");
+//hlist->Write("histlist", TObject::kSingleKey);
+//f->ls();
+*/
 
-string title = "HistFullTrackerMPV";
-char histname[400];
-sprintf(histname, "%s.root",title.c_str());
-c1->SaveAs(histname);
-sprintf(histname, "%s.png",title.c_str());
-c1->SaveAs(histname);
+
+//h->SaveAs("h.root");
+//So this doesn't work, and the *ungodly* way to solve this, if this is how it is to be done that I can think of is remapping h[l][r][m][s] to h1[l*6+r*6+m*6+s
+//
+//Maybe this will work: https://root-forum.cern.ch/t/write-an-array-of-histograms-to-root-file/24078/5]
 
 //Histogram for NEntries at a strip level
 TCanvas * c2 = new TCanvas("c2", "c2", 200, 10, 900, 900);
@@ -354,7 +412,8 @@ hnentries->Draw("COLZ");
 hnentries->SaveAs("hnentries.root");
 hnentries->SaveAs("hnentries");
 
-title = "HistFullTrackerNEntries";
+string title = "HistFullTrackerNEntries";
+char histname[400];
 sprintf(histname, "%s.root",title.c_str());
 c2->SaveAs(histname);
 sprintf(histname, "%s.png",title.c_str());

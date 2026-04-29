@@ -67,7 +67,7 @@ void gauss_nmfitflexname()
     int detnum = 788;
     int run = 001;
     int temp = 42; //Temperature, change me if needed
-    double T = static_cast<double>(-1*temp) + 273.; 
+    double T = static_cast<double>(-1*temp) + 273.;
 
     //This should be an input in an executable
     //TFile *fin = new TFile(TString::Format("/home/kelsey/fittest/det%i-gauss-run%i-%iC/summary-%i.root",detnum,run,temp,detnum),"read");
@@ -112,23 +112,23 @@ void gauss_nmfitflexname()
     int npc = 0;
     int npd = 0;
     //int npe = 0;
-    
+
     //int npf = 0;
     //int npg = 0;
     //int nph = 0;
-    
+
     for(int i=0; i<np; i++)
     {
         tin->GetEntry(i);
 
-	
+
         if(m_strip->compare(aname)==0)
         {
            npa++;
            ga->SetPoint(npa-1, tpeak, res);
            ga->SetPointError(npa-1, 0, res_err);
         }
-	
+
         if(m_strip->compare(bname)==0)
         {
            npb++;
@@ -162,14 +162,14 @@ void gauss_nmfitflexname()
            gf->SetPoint(npf-1, tpeak, res);
            gf->SetPointError(npf-1, 0, res_err);
         }
-	
+
         if(m_strip->compare(gname)==0)
         {
            npg++;
            gg->SetPoint(npg-1, tpeak, res);
            gg->SetPointError(npg-1, 0, res_err);
         }
-	
+
         if(m_strip->compare(hname)==0)
         {
            nph++;
@@ -178,6 +178,7 @@ void gauss_nmfitflexname()
         }
 	*/
     }
+
     TCanvas *myc =new TCanvas("myc","",1000,800);
     gStyle->SetOptFit(0);
     gStyle->SetOptStat(0);
@@ -189,34 +190,34 @@ void gauss_nmfitflexname()
     myc->SetGridy();
 
 
-    
+
     ga->Draw();
     ga->SetLineWidth(0);
     ga->SetMarkerColor(1);
     ga->SetMarkerStyle(3);
-    
+
 
     //gb->Draw();
-    
-    
+
+
     gb->Draw("sameP");
     gb->SetLineWidth(0);
     gb->SetMarkerColor(2);
     gb->SetMarkerStyle(3);
-    
-    
+
+
     gc->Draw("sameP");
     gc->SetLineWidth(0);
     gc->SetMarkerColor(3);
     gc->SetMarkerStyle(3);
 
-    
+
     gd->Draw("sameP");
     gd->SetLineWidth(0);
     gd->SetMarkerColor(4);
     gd->SetMarkerStyle(3);
-    
-	/* 
+
+	/*
     ge->Draw("sameP");
     ge->SetLineWidth(0);
     ge->SetMarkerColor(kCyan+2);
@@ -237,14 +238,14 @@ void gauss_nmfitflexname()
     gh->SetMarkerColor(8);
     gh->SetMarkerStyle(3);
     */
-    
+
     auto xaxis = ga->GetXaxis(); // If strip A is off: CHANGE ga TO gb in this line and the one below -IAN
     auto yaxis = ga->GetYaxis();
     xaxis->SetMoreLogLabels();
     yaxis->SetMoreLogLabels();
     xaxis->SetLimits(0.4,31);
 
-    
+
     ga->SetTitle(0); // Also change here -IAN
     ga->GetHistogram()->SetMinimum(2.);
     ga->GetHistogram()->SetMaximum(20.);
@@ -253,14 +254,14 @@ void gauss_nmfitflexname()
     ga->GetXaxis()->SetTitleOffset(1.3);
     ga->GetYaxis()->CenterTitle();
     ga->GetYaxis()->SetTitle("X-ray FWHM [keV]");
-    
-    
+
+
     TF1 *fa=new TF1("fa","sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",0,40);
     fa->SetLineColor(1);
     fa->SetParameters(5e5, 1e-5, 1);
     ga->Fit("fa","","same", 0.5,30);
-    
-    
+
+
     /*TCanvas *c2 = new TCanvas("c2","contours",10,10,600,800);
     c2->cd();
 
@@ -275,37 +276,37 @@ void gauss_nmfitflexname()
       TGraph* gr13 = new TGraph(n,ax[i],ay[i]);
 	TCanvas *c2 = new TCanvas("c2","contours",10,10,600,800);
       c2->cd();
-    
+
 
     myc->cd();
     */
 
-    
-    
+
+
     TF1 *fb=new TF1("fb","sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",0,40);
     fb->SetLineColor(2);
     fb->SetParameters(5e5, 1e-5, 1);
     gb->Fit("fb","","same", 0.5,30);
-    
 
-    
+
+
     TF1 *fc=new TF1("fc","sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",0,40);
     fc->SetLineColor(3);
     fc->SetParameters(5e5, 1e-5, 1);
     gc->Fit("fc","","same", 0.5,30);
-    
-    
+
+
     TF1 *fd=new TF1("fd","sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",0,40);
     fd->SetLineColor(4);
     fd->SetParameters(5e5, 1e-5, 1);
     gd->Fit("fd","","same", 0.5,30);
-    
+
 	/*
     TF1 *fe=new TF1("fe","sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",0,40);
     fe->SetLineColor(kCyan+2);
     fe->SetParameters(5e5, 1e-5, 1);
     ge->Fit("fe","","same", 0.5,30);
-    
+
     TF1 *ff=new TF1("ff","sqrt([0]*x*1e-6+[1]/(x*1e-6)+[2])",0,40);
     ff->SetLineColor(6);
     ff->SetParameters(5e5, 1e-5, 1);
@@ -329,23 +330,23 @@ void gauss_nmfitflexname()
     double Rsa, Rsb, Rsc, Rsd;//, Rse, Rsf, Rsg, Rsh;
     double eRsa, eRsb, eRsc, eRsd;//, eRse, eRsf, eRsg, eRsh;
 
-    
+
     Ia = (ga->GetFunction("fa")->GetParameter(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     eIa = (ga->GetFunction("fa")->GetParError(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     Afa = ga->GetFunction("fa")->GetParameter(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     eAfa = ga->GetFunction("fa")->GetParError(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     Rsa = ga->GetFunction("fa")->GetParameter(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
     eRsa = ga->GetFunction("fa")->GetParError(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
-    
-    
+
+
     Ib = (gb->GetFunction("fb")->GetParameter(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     eIb = (gb->GetFunction("fb")->GetParError(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     Afb = gb->GetFunction("fb")->GetParameter(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     eAfb = gb->GetFunction("fb")->GetParError(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     Rsb = gb->GetFunction("fb")->GetParameter(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
     eRsb = gb->GetFunction("fb")->GetParError(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
-    
-    
+
+
     Ic = (gc->GetFunction("fc")->GetParameter(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     eIc = (gc->GetFunction("fc")->GetParError(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     Afc = gc->GetFunction("fc")->GetParameter(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
@@ -353,22 +354,22 @@ void gauss_nmfitflexname()
     Rsc = gc->GetFunction("fc")->GetParameter(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
     eRsc = gc->GetFunction("fc")->GetParError(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
 
-    
+
     Id = (gd->GetFunction("fd")->GetParameter(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     eId = (gd->GetFunction("fd")->GetParError(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     Afd = gd->GetFunction("fd")->GetParameter(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     eAfd = gd->GetFunction("fd")->GetParError(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     Rsd = gd->GetFunction("fd")->GetParameter(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
     eRsd = gd->GetFunction("fd")->GetParError(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
-  
-    /*  
+
+    /*
     Ie = (ge->GetFunction("fe")->GetParameter(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     eIe = (ge->GetFunction("fe")->GetParError(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     Afe = ge->GetFunction("fe")->GetParameter(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     eAfe = ge->GetFunction("fe")->GetParError(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     Rse = ge->GetFunction("fe")->GetParameter(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
     eRse = ge->GetFunction("fe")->GetParError(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
-  
+
     If = (gf->GetFunction("ff")->GetParameter(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     eIf = (gf->GetFunction("ff")->GetParError(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     Aff = gf->GetFunction("ff")->GetParameter(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
@@ -382,7 +383,7 @@ void gauss_nmfitflexname()
     eAfg = gg->GetFunction("fg")->GetParError(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
     Rsg = gg->GetFunction("fg")->GetParameter(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
     eRsg = gg->GetFunction("fg")->GetParError(1)/factor/Fv/Ctot/Ctot/(4.*k*T)-Bita/gm;
-    
+
     Ih = (gh->GetFunction("fh")->GetParameter(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     eIh = (gh->GetFunction("fh")->GetParError(0)/factor/Fi-4*k*T/Rp)/2./q*1e9;
     Afh = gh->GetFunction("fh")->GetParameter(2)/factor/Ctot/Ctot/Fvf/2./pi*1e13;
@@ -414,7 +415,7 @@ void gauss_nmfitflexname()
     fout<<"stripH  "<<fixed<<setprecision(2)<<Ih<<" "<<Afh<<" "<<Rsh<<" "<<endl;
     */
     fout.close();
-    
+
 
     auto legend = new TLegend(0.15,0.7,0.88,0.89);
 //    legend->AddEntry(ga, TString::Format("Sh0643_stripA: Ileak=(%10.2f+/-%10.2f)nA, Af=(%10.2f+/-%10.2f)#times10^{-13} V^{-2}, Rs=(%10.2f+/-%10.2f)#Omega",Ia,eIa,Afa,eAfa,Rsa,eRsa),"lep");

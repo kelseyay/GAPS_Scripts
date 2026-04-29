@@ -119,8 +119,8 @@ char FilenameRoot[400];
 
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/mvtest/ethernet241213_145*.root"); //Personal Computer
 //sprintf(FilenameRoot,"/home/kelsey/simulations/test/ethernet241213_145/ethernet241213_1451_rec.root"); //Personal Computer
-sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //210 simu data on my computer!
-//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //212 sim personal computer
+//sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simrec/mu-_gaps_triggerlevel1_FTFP_BERT_HP_1721258929_rec.root"); //210 simu data on my computer!
+sprintf(FilenameRoot,"/home/kelsey/simulations/simdat/simnew/*.root"); //212 sim personal computer
 
 int MainLoopScaleFactor = 1; //Set this number to scale the step size. Larger means runs faster and fewer events
 double TrackerCut = 0.3; //Threshold for an energy deposition to be considered a hit
@@ -143,7 +143,7 @@ double mpvmax = 0.75;
 const int nstrips = 32;
 const int nmods = 6;
 const int nrows = 6;
-const int nlayers = 7;
+const int nlayers = 10;
 int dt[4] = {3,4,1,2};
 
 int lyr[nlayers];
@@ -244,6 +244,7 @@ for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor){
 						int strip = getch(layer, det, sdstrip);
 
 						//cout << "Edep * Cos(theta) " << Event->GetTrack(0)->GetEnergyDeposition(isig)*fabs(Event->GetPrimaryMomentumDirection().CosTheta() << endl;
+						//cout << "lrms" << layer << row << mod << strip << endl;
 						h[layer][row][mod][strip]->Fill(  (Event->GetTrack(0)->GetEnergyDeposition(isig)*fabs(Event->GetPrimaryMomentumDirection().CosTheta()))   );
 						hnentries->Fill(row*32+strip,layer*6+mod);
 
