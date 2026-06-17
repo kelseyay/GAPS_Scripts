@@ -10,7 +10,8 @@ using namespace std;
 
 
 //Hmm so this seems to work lol. How SLOOWWWWW will it be when I implement the complicated version of this?
-float Edep = 0.7372;
+float Edep = 0.77; //0.679 (beta = 0.965) is the lower limit right now for the silicon!
+//Let's just go to 0.95 for now. Close to the minimum, which is ~0.96. Then you get redundant solutions which I don't want to deal with right this second.
 
 float z = 1;
 float Zeff = 14;
@@ -40,11 +41,31 @@ void find_root()
     RootFinder *k = new RootFinder();
     k->SetMethod(RootFinder::kGSL_BISECTION);
     ROOT::Math::Functor1D f(&myfunc);
-    k->SetFunction(f, 0.001, 0.95); //Surely this is the range of values that get tested?
+    //ROOT::Math::Functor1D f(&myfunc2);
+    k->SetFunction(f, 0.001, 0.96); //Surely this is the range of values that get tested?
+    //How to make it so I can change the MPV in the function without having to re-initialize the function or anything?
     //So maybe let's say only use this technique up to like 0.94 to make this cool and good nice
     //YEAHHHHHH I THINK I GOT IT!!!!! WOOOOOO!!!!!!
     k->Solve();
 
     double c = k->Root();
-    cout << c << endl;
+    cout << "Edep is " << Edep << "Calculated MPV is " <<  c << endl;
+
+}
+
+
+
+double myfunc2(double x)
+{
+    return C_1*pow(z,2)*(rho*L*Zeff/Aeff)*(1/pow(x,2))* ( log( (1.022 * pow(x,2)/(1 - pow(x,2)) )/ion ) + log(C_1*pow(z,2)*(rho*L*Zeff/Aeff)*(1/pow(x,2))/ion)  + 0.2 - pow(x,2) );
+}
+
+
+//YAYYY!!
+void find_root_2()
+{
+    auto fa3 = new TF1("fa3","myfunc2(x)",0.01,0.95);
+    double root = fa3->GetX(0.69);
+    cout << "Edep PLEASE " << root << endl;
+
 }
