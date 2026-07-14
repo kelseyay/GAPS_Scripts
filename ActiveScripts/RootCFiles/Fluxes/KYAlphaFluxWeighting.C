@@ -1,0 +1,238 @@
+//How to use:
+// root
+// .L KYAlphaFluxWeighting.C+
+// ExampleWeighting()
+
+#include <TFile.h>
+#include <TStyle.h>
+#include <TTree.h>
+#include <TROOT.h>
+#include <TMath.h>
+#include <TChain.h>
+#include <vector>
+#include <string>
+
+#include "CAnalysisManager.hh"
+#include "GSimulationParameter.hh"
+#include "GPlottingTools.hh"
+
+#include "GGeometry.hh"
+#include <CEventRec.hh>
+
+using namespace ROOT::Math;
+
+using namespace std;
+using namespace Crane::Analysis;
+
+namespace cl = Crane::Common;
+namespace ca = Crane::Analysis;
+
+
+// example for making a weighted histogram of beta values for simulation v300
+
+void ExampleWeighting(){
+
+    /////////////////////////////////////////
+    // v.3.0.0 Simulation
+    /////////////////////////////////////////
+
+    cout<<" Simulation v.3.0.0"<<endl;
+
+    //step size to sample over the files, helpful for testing to not run over the full files, which is potentially slow
+    int MainLoopScaleFactor = 1;
+
+    string Directory;
+    Directory = "/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/";
+
+    //--------------------------------------
+
+    //This object is managing the plotting
+    ca::GPlottingTools Plotting;
+
+    int xlim = 2;
+    int xbin = 100;
+
+    TH1D * HBeta = Plotting.DefineTH1D("HBeta", xbin, 0, xlim, "Beta", "Muon Rate", 0.5, 1e3);
+    TH1D * HCosTheta = Plotting.DefineTH1D("HCosTheta", xbin, 0, xlim, "cos(theta)", "Muon Rate", 0.5, 100);
+
+    /////////////////////////////////////////
+    // Setting up muon weighting
+    /////////////////////////////////////////
+
+    double FluxScaleFactor = 71.1552/32.058750*0.25;
+
+    vector<pair<double, double> > CosZenithCut;
+    CosZenithCut.push_back(make_pair(-0.75, -1));
+    CosZenithCut.push_back(make_pair(-0.5, -0.75));
+    CosZenithCut.push_back(make_pair(-0.25, -0.5));
+    CosZenithCut.push_back(make_pair(0, -0.25));
+
+    //Feel free to poke around with TBrowser b("") in root, but here's the quick version:
+    //c6a is the (canvas? root file) with the different angles with the flux. It must by using that to rate scale
+    //Name them correctly! This is important! Have a vector for each type of particle!
+    //For MC truth, use the species of particle to determine which flux weighting to use.
+
+
+    //Since we're doing downwards beta cut, angle bin shooouuuulld be fine based on looking at the SimpleDet analysis resources fluxes
+    vector<TGraph*> GProtonTotalFluxUnscaled;
+    GProtonTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_2212_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.875"), 0.938));
+    GProtonTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_2212_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.625"), 0.938));
+    GProtonTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_2212_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.375"), 0.938));
+    GProtonTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_2212_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.125"), 0.938));
+
+    vector<TGraph*> GAlphaTotalFluxUnscaled;
+    GAlphaTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_1000020040_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.875"), 3.72));
+    GAlphaTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_1000020040_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.625"), 3.72));
+    GAlphaTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_1000020040_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.375"), 3.72));
+    GAlphaTotalFluxUnscaled.push_back(Plotting.ConvertEnergyFluxToBetaFlux(Plotting.GetTH1D(string("/home/kelsey/GitScripts/ActiveScripts/RootCFiles/Fluxes/2025_max_atmospheric_fluxes/total_fluxes_coszenith_37000_m_1000020040_antarctica.root"), "c6a", "p_total_altitude_zenith_energy_0.125"), 3.72));
+
+    //currently not working, will be updated for newer simulations
+    //std::string recoName = "FindHough3D";
+
+    char FilenameRoot[400];
+    //sprintf(FilenameRoot,"%s/%s.root","/home/kelsey/simulations/simdat/mu/v.3.0.0/triggerlevel1", "mu-_gaps_triggerlevel1_FTFP_BERT_*");
+    sprintf(FilenameRoot,"%s/%s.root","/home/kelsey/simulations/simdat/proton/v3.0.0/triggerlevel1", "proton_gaps_triggerlevel1_FTFP_BERT_1761435685_rec");
+
+    //-----------------------------------------------------------------------
+
+    //prepare reconstronstructed event
+    TChain * TreeRec = new TChain("TreeRec");
+    TreeRec->Add(FilenameRoot);
+    CEventRec* Event = new CEventRec;
+    TreeRec->SetBranchAddress("Rec", &Event);
+    TreeRec->GetEntry(0);
+    Event->SetEventTime(double(Event->GetEventTime())/(1000./64.)+1631030675);//placeholder for fc conversion to unix time
+
+    //------------------------------------------------------------------------
+    //plots are shown as a function of beta
+    //this is the number of bins
+    int BetaBins = 25;
+    double StartingPlaneAcceptance = 1;
+    TH1D* HPrimaryBeta = nullptr;
+    double BinWidthFactor = 1;
+    std::vector<double> PrimaryBetaLowHigh;
+
+    TChain*TreeSimulationParameter = new TChain("SimulationParameterTree");
+    TreeSimulationParameter->Add(FilenameRoot);
+    GSimulationParameter * Parameter = new GSimulationParameter;
+    TreeSimulationParameter->SetBranchAddress("SimulationParameter", &Parameter);
+    TreeSimulationParameter->GetEntry(0);
+
+    CAnalysisManager AnalysisManagerRec;
+    AnalysisManagerRec.SetGSimulationParameterTChain(TreeSimulationParameter);
+    StartingPlaneAcceptance = AnalysisManagerRec.GetStartingPlaneAcceptance();
+
+    //Find low and high range of beta from simulation parameters
+    PrimaryBetaLowHigh = AnalysisManagerRec.GetPrimaryBetaLowHigh();
+
+    HPrimaryBeta = AnalysisManagerRec.GetHPrimaryBeta();
+    //HPrimaryBeta = new TH1D("HPrimaryBeta", "", BetaBins, PrimaryBetaLowHigh.at(0), PrimaryBetaLowHigh.at(1));
+
+    BinWidthFactor = (PrimaryBetaLowHigh.at(1)-PrimaryBetaLowHigh.at(0))/double(BetaBins) / HPrimaryBeta->GetBinWidth(1);
+
+    //------------------------------------
+
+    AnalysisManagerRec.SetEvent(Event);
+
+    float counts = 0;
+
+    //loop over simulated events
+    for(unsigned int i = 0; i < TreeRec->GetEntries(); i+=MainLoopScaleFactor)
+    {
+            //------------------------------------
+            AnalysisManagerRec.EventReset();
+            TreeRec->GetEntry(i);
+
+            //choose a reconstruction for beta, currently contains bugs, v300 only contains FindPrimaryStarIterative so this remains commented out
+            //if (AnalysisManagerRec.IsRec())
+            //        {
+            //        AnalysisManagerRec.GetCEventRec()->ChooseReconstruction(recoName);
+            //        AnalysisManagerRec.GetCEventRec()->ListAvailableReconstructions();
+            //        }
+
+            double AcceptanceScale;
+            if (TreeSimulationParameter != nullptr)
+                    {
+                    //acceptance scaling factor based on beta of the primary
+                    AcceptanceScale = MainLoopScaleFactor*StartingPlaneAcceptance/(BinWidthFactor*HPrimaryBeta->GetBinContent(HPrimaryBeta->FindBin(Event->GetPrimaryBetaGenerated())));
+
+                    if(HPrimaryBeta->GetBinContent(HPrimaryBeta->FindBin(Event->GetPrimaryBetaGenerated())) == 0) AcceptanceScale = 0;
+                    }
+            else AcceptanceScale = 1;
+
+	    int AngularRegion = -1;
+            for(unsigned int a = 0; a < CosZenithCut.size(); a++) if(Event->GetPrimaryMomentumDirectionGenerated().CosTheta() < CosZenithCut.at(a).first && Event->GetPrimaryMomentumDirectionGenerated().CosTheta() > CosZenithCut.at(a).second) AngularRegion = a;
+	    if(AngularRegion < 0) continue;
+            double RateScale = FluxScaleFactor*AcceptanceScale*GAlphaTotalFluxUnscaled.at(AngularRegion)->Eval(Event->GetPrimaryBetaGenerated());
+
+
+            //------------------------------------
+	    double BetaTruth = Event->GetPrimaryBetaGenerated();
+	    double costheta = Event->GetPrimaryMomentumDirectionGenerated().CosTheta();
+
+		cout << "Beta gen = " << BetaTruth << " Cos(theta) = " << costheta << " RateScale " << RateScale << endl;
+
+	    HBeta->Fill(BetaTruth,RateScale);
+	    HCosTheta->Fill(fabs(costheta),RateScale);
+	    counts = counts + RateScale;
+
+    }
+
+    cout<<"number of events in v.3.0.0"<<endl;
+    cout<<counts<<endl;
+
+    gROOT->Reset();
+    TStyle * plain = new TStyle("plain","plain");
+    plain->SetCanvasBorderMode(0);
+    plain->SetPadBorderMode(0);
+    plain->SetPadColor(0);
+    plain->SetCanvasColor(0);
+    plain->SetTitleColor(1);
+    plain->SetStatColor(0);
+    plain->SetTitleFillColor(0);
+    plain->SetLineWidth(2);
+    plain->SetHistLineWidth(4);
+
+    gROOT->SetStyle("plain");
+
+    TCanvas * CBeta = new TCanvas("CBeta", "CBeta", 200, 10, 900, 900);
+    CBeta->SetLeftMargin(0.11);
+    CBeta->SetRightMargin(0.04);
+    CBeta->SetTopMargin(0.04);
+    HBeta->GetXaxis()->SetRangeUser(0, 1.25);
+    HBeta->GetYaxis()->SetRangeUser(1, (int)counts);
+
+    HBeta->SetLineColor(6);
+    HBeta->Draw("hist");
+
+
+    gPad->SetGridx(1);
+    gPad->SetGridy(1);
+    gPad->SetLogy(1);
+
+    char text[400];
+    sprintf(text, "%sweightedbetaAlphav300.png", Directory.c_str());
+
+    cout<<"muon rate: "<<HBeta->Integral(0,xbin)<<"Hz"<<endl;
+
+    CBeta->SaveAs(text);
+
+    TCanvas * CCosTheta = new TCanvas("CCosTheta", "CCosTheta", 200, 10, 900, 900);
+    CCosTheta->SetLeftMargin(0.11);
+    CCosTheta->SetRightMargin(0.04);
+    CCosTheta->SetTopMargin(0.04);
+    HCosTheta->GetXaxis()->SetRangeUser(0, 1.25);
+    HCosTheta->GetYaxis()->SetRangeUser(1, (int)counts);
+
+    HCosTheta->SetLineColor(1);
+    HCosTheta->Draw("hist");
+
+    cout<<"Proton rate: "<<HCosTheta->Integral(0,xbin)<<"Hz"<<endl;
+
+    gPad->SetGridx(1);
+    gPad->SetGridy(1);
+    gPad->SetLogy(1);
+
+    sprintf(text, "%sweightedcosthetaAlphav300.png", Directory.c_str());
+    CCosTheta->SaveAs(text);
+}

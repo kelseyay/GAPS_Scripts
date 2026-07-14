@@ -17,7 +17,7 @@ float z = 1;
 float Zeff = 14;
 float Aeff = 28;
 float rho = 2.33; //Density g/cm^2
-float L = 0.22;
+float L = 0.25;
 
 float ion = (0.000016 * pow(Zeff,0.9));
 float C_1 = 0.3071/2; //MeV/ g/cm^2 #2*pi*constants not 4*pi*constants for MPV
@@ -67,5 +67,16 @@ void find_root_2()
     auto fa3 = new TF1("fa3","myfunc2(x)",0.01,0.95);
     double root = fa3->GetX(0.69);
     cout << "Edep PLEASE " << root << endl;
+}
 
+double ZOne_Tkr(double x)
+{
+    return C_1*pow(z,2)*(rho*L*Zeff/Aeff)*(1/pow(x,2))* ( log( (1.022 * pow(x,2)/(1 - pow(x,2)) )/ion ) + log(C_1*pow(z,2)*(rho*L*Zeff/Aeff)*(1/pow(x,2))/ion)  + 0.2 - pow(x,2) );
+}
+
+//Try figuring out why this worked: https://root.cern/doc/v620/classTF1.html
+TF1 *Z1_tkr_Solve = new TF1("Z1_tkr_Solve", [](double *x, double *p){ return ZOne_Tkr(x[0]); }, 0.01, 0.95, 0);
+double solve_beta(double mpv){
+    double root = Z1_tkr_Solve->GetX(mpv);
+    return root;
 }
