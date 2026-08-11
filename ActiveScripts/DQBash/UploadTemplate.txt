@@ -1,0 +1,21 @@
+Use this to assist in uploading the files to the wiki
+MAKE SURE YOU CONTROL H THE DATE AND VERSION AND RECO AND GAIN FACTORS 
+
+
+<gallery widths=200px heights=150px>
+File:Cuts Rec B 251204 v2510G.png|Beta distribution 251204 v25.10
+File:RecBProxBB0.20-1.20TOF1TKR1TF Factor1.50TK Factor1.00 251204 v2510G.png|Beta proxy vs beta reconstructed DQ plot for 251204 ground data v.25.10. NOTE: Proxy beta is only calculated up to B = 0.95 to avoid redudancy (MPV of B = 0.999 same as B = 0.875, solver chooses the lower value). Ground muons mostly have B > 0.95 so this effect is clear.
+</gallery>
+
+<gallery widths=200px heights=150px>
+File:UMB TOF2D vs Beta Rec 251204 v2510G.png|251204 v25.10 (H3D) Angle Corrected Edep vs Beta UMB
+File:TKR2D vs Beta Rec0 251204 v2510G.png|251204 v25.10 (H3D) Angle corrected Edep vs Beta TKR Layer 0
+File:CBE bot TOF2D vs Beta Rec 251204 v2510G.png|251204 v25.10 (H3D) Angle corrected Edep vs Beta TOF CBE bot
+</gallery>
+
+<gallery widths=200px heights=150px>
+File:TOF Zedep3 251204 v2510G.png|251204 H3D Just TOF Gain factor (G_tof = 1.50)
+File:TKR Zedep3 251204 v2510G.png|251204 H3D Just TKR Gain factor (G_tkr = 1.00)
+File:Both Zedep3 251204 v2510G.png|251204 H3D MIP charge peaks Gtof = 1.5, Gtkr = 1.0
+</gallery>
+

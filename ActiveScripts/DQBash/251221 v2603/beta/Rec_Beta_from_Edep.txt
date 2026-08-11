@@ -1,0 +1,8 @@
+Filename : /home/kelsey/simulations/simdat/flight/251221/v26.03/mer
+Beta High : 1.200000
+Beta Low : 0.200000
+Charge : 1.000000
+Trigger : 2
+Total Events/Mainscale Factor 5858018
+TOF Factor 1.44
+TKR Factor 1.05

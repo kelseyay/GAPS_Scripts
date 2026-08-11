@@ -1,0 +1,4 @@
+Filename : /home/kelsey/simulations/simdat/ground/251204/25.10/ethernet251204_08
+Beta High : 0.990000
+Beta Low : 0.900000
+Total Events/Mainscale Factor 689021

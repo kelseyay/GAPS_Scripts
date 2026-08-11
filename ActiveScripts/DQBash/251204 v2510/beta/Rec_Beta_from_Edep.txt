@@ -1,0 +1,8 @@
+Filename : /home/kelsey/simulations/simdat/ground/251204/25.10/et
+Beta High : 1.200000
+Beta Low : 0.200000
+Charge : 1.000000
+Trigger : 0
+Total Events/Mainscale Factor 3327306
+TOF Factor 1.5
+TKR Factor 1

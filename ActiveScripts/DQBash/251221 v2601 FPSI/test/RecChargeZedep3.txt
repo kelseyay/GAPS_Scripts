@@ -1,0 +1,4 @@
+Filename : /home/kelsey/simulations/simdat/flight/251221/FPSI/starlink251221_0
+Beta High : 0.990000
+Beta Low : 0.900000
+Total Events/Mainscale Factor 1682609

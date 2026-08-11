@@ -1,0 +1,2 @@
+Filename : /home/kelsey/simulations/simdat/flight/251221/v26.03/mer
+NEvents = 1171603
