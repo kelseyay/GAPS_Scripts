@@ -43,6 +43,7 @@
 # Please ignore the build directory?
 build
 ignore
+ActiveScripts/DQBash/test
 *.swp
 .cache
 *.png
